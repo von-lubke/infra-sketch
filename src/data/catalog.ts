@@ -80,12 +80,13 @@ export const PROVIDER_LABELS: Record<Provider | 'all', string> = {
   generic: 'Generik',
   aws: 'AWS',
   gcp: 'GCP',
+  azure: 'Azure',
   k8s: 'K8s',
 };
 
 /**
- * Clean 24x24 vector SVG path strings used identically in both
- * the React SVG canvas/sidebar and HTML5 Canvas 2D PNG export via Path2D.
+ * Clean 24x24 vector SVG path strings used identically across
+ * React SVG canvas, standalone SVG export, and HTML5 Canvas 2D PNG export via Path2D.
  */
 export const ICON_PATHS: Record<string, string[]> = {
   client: [
@@ -106,6 +107,12 @@ export const ICON_PATHS: Record<string, string[]> = {
     'M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6',
     'M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
   ],
+  nosql: [
+    'M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z',
+    'M4 9h16',
+    'M4 15h16',
+    'M10 9v12',
+  ],
   loadbalancer: [
     'M12 4v5',
     'M12 9L6 15',
@@ -125,6 +132,15 @@ export const ICON_PATHS: Record<string, string[]> = {
     'M3 17h12',
     'M17 9l4 3-4 3',
   ],
+  stream: [
+    'M3 8c3-3 6 3 9 0s6 3 9 0',
+    'M3 14c3-3 6 3 9 0s6 3 9 0',
+    'M5 19h14',
+  ],
+  notify: [
+    'M6 8a6 6 0 1 1 12 0c0 4 2 6 2 6H4s2-2 2-6Z',
+    'M10 18a2 2 0 0 0 4 0',
+  ],
   storage: [
     'M4 7l8-4 8 4-8 4-8-4Z',
     'M4 12l8 4 8-4',
@@ -138,6 +154,11 @@ export const ICON_PATHS: Record<string, string[]> = {
   firewall: [
     'M12 3l8 3.5v5.5c0 4.8-3.4 8.5-8 10-4.6-1.5-8-5.2-8-10V6.5L12 3Z',
     'M9 12l2 2 4-4',
+  ],
+  auth: [
+    'M5 11a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-8Z',
+    'M8 9V7a4 4 0 0 1 8 0v2',
+    'M12 14v3',
   ],
   dns: [
     'M4 6h16',
@@ -200,6 +221,31 @@ export const ICON_PATHS: Record<string, string[]> = {
     'M8 12h4',
     'M16 12h.01',
   ],
+};
+
+export const ICON_LABELS: Record<string, string> = {
+  client: 'Client',
+  server: 'Server',
+  database: 'SQL DB',
+  nosql: 'NoSQL',
+  loadbalancer: 'Balancer',
+  cache: 'Cache',
+  queue: 'Queue',
+  stream: 'Stream',
+  notify: 'Notify',
+  storage: 'Storage',
+  cdn: 'CDN / Globe',
+  firewall: 'Firewall',
+  auth: 'Auth / Key',
+  dns: 'DNS',
+  compute: 'Compute',
+  lambda: 'Serverless',
+  apigw: 'Gateway',
+  container: 'Container',
+  k8s: 'Kubernetes',
+  analytics: 'Analytics',
+  config: 'Config',
+  volume: 'Volume',
 };
 
 export const CATALOG_GROUPS: CatalogGroup[] = [
@@ -350,6 +396,24 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
     iconKey: 'lambda',
   },
   {
+    id: 'aws-ecs',
+    label: 'Amazon ECS',
+    defaultSublabel: 'Fargate Task',
+    provider: 'aws',
+    category: 'compute',
+    colorTheme: 'amber',
+    iconKey: 'container',
+  },
+  {
+    id: 'aws-eks',
+    label: 'Amazon EKS',
+    defaultSublabel: 'Managed K8s',
+    provider: 'aws',
+    category: 'compute',
+    colorTheme: 'amber',
+    iconKey: 'k8s',
+  },
+  {
     id: 'aws-apigw',
     label: 'API Gateway',
     defaultSublabel: 'REST / WS',
@@ -366,6 +430,15 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
     category: 'network',
     colorTheme: 'violet',
     iconKey: 'cdn',
+  },
+  {
+    id: 'aws-route53',
+    label: 'Route 53',
+    defaultSublabel: 'Geo / Failover DNS',
+    provider: 'aws',
+    category: 'network',
+    colorTheme: 'violet',
+    iconKey: 'dns',
   },
   {
     id: 'aws-s3',
@@ -386,6 +459,24 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
     iconKey: 'database',
   },
   {
+    id: 'aws-dynamodb',
+    label: 'DynamoDB',
+    defaultSublabel: 'NoSQL Key-Value',
+    provider: 'aws',
+    category: 'data',
+    colorTheme: 'indigo',
+    iconKey: 'nosql',
+  },
+  {
+    id: 'aws-elasticache',
+    label: 'ElastiCache',
+    defaultSublabel: 'Managed Redis',
+    provider: 'aws',
+    category: 'data',
+    colorTheme: 'rose',
+    iconKey: 'cache',
+  },
+  {
     id: 'aws-sqs',
     label: 'Amazon SQS',
     defaultSublabel: 'Async Queue',
@@ -393,6 +484,33 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
     category: 'data',
     colorTheme: 'rose',
     iconKey: 'queue',
+  },
+  {
+    id: 'aws-sns',
+    label: 'Amazon SNS',
+    defaultSublabel: 'Pub/Sub Topic',
+    provider: 'aws',
+    category: 'data',
+    colorTheme: 'rose',
+    iconKey: 'notify',
+  },
+  {
+    id: 'aws-kinesis',
+    label: 'Kinesis Stream',
+    defaultSublabel: 'Real-time Stream',
+    provider: 'aws',
+    category: 'data',
+    colorTheme: 'violet',
+    iconKey: 'stream',
+  },
+  {
+    id: 'aws-cognito',
+    label: 'Cognito',
+    defaultSublabel: 'OIDC / JWT Auth',
+    provider: 'aws',
+    category: 'security',
+    colorTheme: 'rose',
+    iconKey: 'auth',
   },
 
   // GCP
@@ -406,6 +524,15 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
     iconKey: 'container',
   },
   {
+    id: 'gcp-functions',
+    label: 'Cloud Functions',
+    defaultSublabel: 'Event Trigger',
+    provider: 'gcp',
+    category: 'compute',
+    colorTheme: 'sky',
+    iconKey: 'lambda',
+  },
+  {
     id: 'gcp-gke',
     label: 'Google GKE',
     defaultSublabel: 'Managed K8s',
@@ -415,6 +542,24 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
     iconKey: 'k8s',
   },
   {
+    id: 'gcp-lb',
+    label: 'Cloud Load Bal',
+    defaultSublabel: 'Global Anycast',
+    provider: 'gcp',
+    category: 'network',
+    colorTheme: 'violet',
+    iconKey: 'loadbalancer',
+  },
+  {
+    id: 'gcp-armor',
+    label: 'Cloud Armor',
+    defaultSublabel: 'Edge WAF',
+    provider: 'gcp',
+    category: 'security',
+    colorTheme: 'rose',
+    iconKey: 'firewall',
+  },
+  {
     id: 'gcp-cloudsql',
     label: 'Cloud SQL',
     defaultSublabel: 'Managed Postgres',
@@ -422,6 +567,15 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
     category: 'data',
     colorTheme: 'indigo',
     iconKey: 'database',
+  },
+  {
+    id: 'gcp-memorystore',
+    label: 'Memorystore',
+    defaultSublabel: 'Managed Redis',
+    provider: 'gcp',
+    category: 'data',
+    colorTheme: 'rose',
+    iconKey: 'cache',
   },
   {
     id: 'gcp-gcs',
@@ -446,6 +600,80 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
     label: 'Pub/Sub',
     defaultSublabel: 'Event Stream',
     provider: 'gcp',
+    category: 'data',
+    colorTheme: 'amber',
+    iconKey: 'queue',
+  },
+
+  // Azure
+  {
+    id: 'azure-vm',
+    label: 'Azure VM',
+    defaultSublabel: 'Standard_D2s_v5',
+    provider: 'azure',
+    category: 'compute',
+    colorTheme: 'sky',
+    iconKey: 'compute',
+  },
+  {
+    id: 'azure-functions',
+    label: 'Azure Functions',
+    defaultSublabel: 'Serverless Fn',
+    provider: 'azure',
+    category: 'compute',
+    colorTheme: 'amber',
+    iconKey: 'lambda',
+  },
+  {
+    id: 'azure-aks',
+    label: 'Azure AKS',
+    defaultSublabel: 'Managed K8s',
+    provider: 'azure',
+    category: 'compute',
+    colorTheme: 'indigo',
+    iconKey: 'k8s',
+  },
+  {
+    id: 'azure-frontdoor',
+    label: 'Front Door',
+    defaultSublabel: 'Global CDN + WAF',
+    provider: 'azure',
+    category: 'network',
+    colorTheme: 'violet',
+    iconKey: 'cdn',
+  },
+  {
+    id: 'azure-blob',
+    label: 'Blob Storage',
+    defaultSublabel: 'Hot / Archive',
+    provider: 'azure',
+    category: 'storage',
+    colorTheme: 'emerald',
+    iconKey: 'storage',
+  },
+  {
+    id: 'azure-cosmos',
+    label: 'Cosmos DB',
+    defaultSublabel: 'Multi-Region NoSQL',
+    provider: 'azure',
+    category: 'data',
+    colorTheme: 'indigo',
+    iconKey: 'nosql',
+  },
+  {
+    id: 'azure-sql',
+    label: 'Azure SQL DB',
+    defaultSublabel: 'Managed SQL',
+    provider: 'azure',
+    category: 'data',
+    colorTheme: 'sky',
+    iconKey: 'database',
+  },
+  {
+    id: 'azure-servicebus',
+    label: 'Service Bus',
+    defaultSublabel: 'Enterprise Queue',
+    provider: 'azure',
     category: 'data',
     colorTheme: 'amber',
     iconKey: 'queue',
@@ -499,6 +727,8 @@ export const CATALOG_COMPONENTS: CatalogComponent[] = [
   },
 ];
 
-export const DEFAULT_NODE_WIDTH = 168;
+export const DEFAULT_NODE_WIDTH = 184;
 export const DEFAULT_NODE_HEIGHT = 76;
+export const DEFAULT_TEXT_WIDTH = 180;
+export const DEFAULT_TEXT_HEIGHT = 72;
 export const GRID_SIZE = 20;

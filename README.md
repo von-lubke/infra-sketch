@@ -4,7 +4,7 @@
 
 **Tool diagram arsitektur infrastruktur cloud bergaya sketsa (*hand-drawn*) ala Excalidraw.**
 
-Rancang topologi multi-cloud (AWS, GCP, Kubernetes, dan komponen generik), atur container VPC/Subnet/Cluster, hubungkan layanan dengan panah berlabel, lalu ekspor ke PNG beresolusi tinggi atau JSON langsung dari browser.
+Rancang topologi multi-cloud (AWS, GCP, Azure, Kubernetes, dan komponen generik), atur container VPC/Subnet/Cluster bersarang, hubungkan layanan dengan panah berlabel, lalu ekspor ke PNG beresolusi tinggi, SVG vektor, atau JSON langsung dari browser.
 
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=0F172A)
 ![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
@@ -12,8 +12,8 @@ Rancang topologi multi-cloud (AWS, GCP, Kubernetes, dan komponen generik), atur 
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 ![Rough.js](https://img.shields.io/badge/Rough.js-4.6-EC4899?style=for-the-badge)
 
-![Multi-Cloud](https://img.shields.io/badge/Katalog-AWS%20%7C%20GCP%20%7C%20K8s%20%7C%20Generik-4F46E5?style=for-the-badge)
-![Export](https://img.shields.io/badge/Export-PNG%20%26%20JSON-059669?style=for-the-badge)
+![Multi-Cloud](https://img.shields.io/badge/Katalog-AWS%20%7C%20GCP%20%7C%20Azure%20%7C%20K8s%20%7C%20Generik-4F46E5?style=for-the-badge)
+![Export](https://img.shields.io/badge/Export-PNG%20%7C%20SVG%20%7C%20JSON-059669?style=for-the-badge)
 ![Runtime](https://img.shields.io/badge/Package_Manager-Bun%20%7C%20npm-0F172A?style=for-the-badge&logo=bun&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 [![Docker Build](https://img.shields.io/github/actions/workflow/status/von-lubke/infra-sketch/docker.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=Docker%20CI)](https://github.com/von-lubke/infra-sketch/actions/workflows/docker.yml)
@@ -37,24 +37,27 @@ Rancang topologi multi-cloud (AWS, GCP, Kubernetes, dan komponen generik), atur 
 
 ## Fitur Utama
 
-- **Tampilan Sketsa Ala Excalidraw**: Dirender menggunakan [Rough.js](https://roughjs.com/) dengan garis bergaya gambar tangan (*hand-drawn*) dan perpaduan font *Architects Daughter* serta *JetBrains Mono*.
-- **Katalog Komponen Multi-Cloud (28 Komponen + 4 Container)**:
-  - **Container Grup**: `VPC Network`, `Public Subnet`, `Private Subnet`, dan `K8s Cluster` yang dapat diubah ukurannya dari empat sudut.
-  - **Generik**: Client / Web, Load Balancer, App Server, Database SQL, Redis Cache, Message Queue, Object Storage, CDN Edge, WAF / Firewall, DNS Resolver.
-  - **AWS**: AWS EC2, AWS Lambda, API Gateway, CloudFront, Amazon S3, Amazon RDS, Amazon SQS.
-  - **GCP**: Cloud Run, Google GKE, Cloud SQL, Cloud Storage, BigQuery, Pub/Sub.
-  - **Kubernetes (K8s)**: K8s Ingress, K8s Service, K8s Pod, ConfigMap, Persistent Vol.
-- **Template Arsitektur Siap Pakai**:
-  - `3-Tier Web App` (template bawaan saat pertama kali dibuka)
-  - `Microservices K8s`
-  - `Serverless Cloud Pipeline`
-  - `Kanvas Kosong`
-- **Konektor Fleksibel**: Hubungkan antar komponen melalui 4 titik *anchor* (atas, kanan, bawah, kiri) atau mode Konektor dengan dukungan label protokol, garis *solid*/*putus-putus*, jalur *lengkung*/*lurus*, panah satu/dua arah, dan tombol balik arah koneksi.
-- **7 Tema Warna Sketsa**: Abu Netral, Indigo, Biru Cloud, Hijau Data, Kuning Amber, Ungu Network, dan Merah Security.
-- **Export PNG & Import/Export JSON**:
-  - **Export PNG** dengan *auto-crop*, pratinjau langsung, pilihan latar belakang (`Putih` atau `Transparan`), skala resolusi (`1x`, `2x`, `3x`), dan padding (`24px`, `40px`, `64px`).
-  - **Export & Import JSON** (`*.infrasketch.json`) dengan validasi skema otomatis.
-- **Auto-Save Lokal**: Perubahan diagram otomatis disimpan ke `localStorage` browser (`infrasketch:document:v1`) dan mendukung Undo/Redo hingga 40 langkah.
+- **Tampilan Sketsa Ala Excalidraw (100% Offline-Ready)**: Dirender menggunakan [Rough.js](https://roughjs.com/) dengan font terbundel lokal (*Architects Daughter*, *JetBrains Mono*, *Plus Jakarta Sans*) sehingga tampil konsisten termasuk saat self-hosted offline di Docker.
+- **Katalog Komponen Multi-Cloud (48 Komponen + 4 Container + 2 Anotasi)**:
+  - **Container Grup Bersarang**: `VPC Network`, `Public Subnet`, `Private Subnet`, dan `K8s Cluster` — memindahkan VPC ikut memindahkan subnet & komponen di dalamnya.
+  - **Generik (10)**: Client / Web, Load Balancer, App Server, Database SQL, Redis Cache, Message Queue, Object Storage, CDN Edge, WAF / Firewall, DNS Resolver.
+  - **AWS (15)**: EC2, Lambda, ECS, EKS, API Gateway, CloudFront, Route 53, S3, RDS, DynamoDB, ElastiCache, SQS, SNS, Kinesis Stream, Cognito.
+  - **GCP (10)**: Cloud Run, Cloud Functions, GKE, Cloud Load Balancing, Cloud Armor, Cloud SQL, Memorystore, Cloud Storage, BigQuery, Pub/Sub.
+  - **Azure (8)**: Azure VM, Azure Functions, Azure AKS, Front Door, Blob Storage, Cosmos DB, Azure SQL DB, Service Bus.
+  - **Kubernetes (5)**: K8s Ingress, K8s Service, K8s Pod, ConfigMap, Persistent Vol.
+  - **Anotasi**: Sticky Note & Teks Bebas multi-baris (`T`).
+- **Template Arsitektur Siap Pakai (6 Template)**:
+  - `3-Tier Web App` (bawaan), `Microservices K8s`, `Serverless Cloud Pipeline`, `Event-Driven Streaming`, `Multi-Region Active-Active`, dan `Kanvas Kosong`.
+- **Editor Produktivitas Ala Figma**:
+  - **Multi-select & Marquee**: `Shift+Klik`, drag kotak seleksi di area kosong, dan `Ctrl+A`.
+  - **`Ctrl+Drag` / `Alt+Drag` Duplikat**: Seret sambil menahan `Ctrl` (atau `Alt`) untuk menduplikat komponen/container beserta seluruh propertinya langsung ke posisi baru.
+  - **Salin/Tempel Lintas Tab & Gaya**: `Ctrl+C/X/V`, `Ctrl+Alt+C/V` (Salin & Tempel Gaya), resize komponen dari 4 sudut, urutan lapisan (`]`/`[`), kunci posisi (`Ctrl+L`), nudge (`Arrow`/`Shift+Arrow`), serta menu klik kanan.
+- **Konektor Cerdas**: Hubungkan node maupun container melalui 4 titik *anchor*, drag ujung panah untuk sambung ulang (*reconnect*), pilihan jalur *lengkung*, *lurus*, dan *siku (orthogonal)*, serta panah *1 arah*, *2 arah*, atau *tanpa panah*.
+- **Export PNG, SVG, Clipboard & JSON**:
+  - **Export PNG** (*auto-crop*, skala `1x/2x/3x`, latar putih/transparan, salin PNG langsung ke clipboard) & **Export SVG** (vektor dengan font tertanam).
+  - Opsi **Ekspor hanya elemen terpilih**.
+  - **Export & Import JSON** (`*.infrasketch.json` v2, kompatibel mundur dengan file v1).
+- **Auto-Save Lokal**: Perubahan tersimpan otomatis di `localStorage` (`infrasketch:document:v1`) dan mendukung Undo/Redo hingga 40 langkah dengan *coalescing* untuk edit teks di panel properti.
 
 ---
 
@@ -62,11 +65,11 @@ Rancang topologi multi-cloud (AWS, GCP, Kubernetes, dan komponen generik), atur 
 
 | Kategori | Teknologi |
 | :--- | :--- |
-| **Framework UI** | React 19 + TypeScript |
-| **Build Tool** | Vite 8 |
-| **Styling** | Tailwind CSS v4 (`@tailwindcss/vite`) |
+| **Framework UI** | React 19 + TypeScript 7 |
+| **Build Tool** | Vite 8 + Tailwind CSS v4 |
 | **Sketch Renderer** | Rough.js + SVG + HTML5 Canvas 2D |
-| **Ikon** | Lucide React + Ikon vektor kustom (`Path2D` & SVG) |
+| **Font Lokal** | `@fontsource/architects-daughter`, `@fontsource/jetbrains-mono`, `@fontsource/plus-jakarta-sans` |
+| **Lint & Test** | Oxlint + Vitest |
 
 ---
 
@@ -74,135 +77,53 @@ Rancang topologi multi-cloud (AWS, GCP, Kubernetes, dan komponen generik), atur 
 
 ### Prasyarat
 
-Pastikan salah satu runtime/package manager berikut sudah terpasang di sistem Anda:
 - [Node.js](https://nodejs.org/) (dengan `npm`) — disarankan versi LTS terbaru
 - atau [Bun](https://bun.sh/) (proyek ini menyertakan `bun.lock`)
 
 ### Langkah Instalasi
 
-1. **Clone repositori**
+```bash
+git clone https://github.com/von-lubke/infra-sketch.git
+cd infra-sketch
 
-   ```bash
-   git clone https://github.com/von-lubke/infra-sketch.git
-   cd infra-sketch
-   ```
+# Pasang dependensi (Bun atau npm)
+bun install   # atau: npm install
 
-2. **Pasang dependensi**
-
-   Menggunakan **Bun**:
-   ```bash
-   bun install
-   ```
-
-   Atau menggunakan **npm**:
-   ```bash
-   npm install
-   ```
-
-3. **Jalankan server pengembangan**
-
-   Menggunakan **Bun**:
-   ```bash
-   bun run dev
-   ```
-
-   Atau menggunakan **npm**:
-   ```bash
-   npm run dev
-   ```
-
-4. **Buka di browser**
-
-   Aplikasi akan berjalan secara default di:
-   ```text
-   http://localhost:3000
-   ```
-
-> **Catatan Lingkungan (Opsional)**: Aplikasi berjalan sepenuhnya di sisi klien (*browser*) tanpa membutuhkan kunci API untuk membuat, mengedit, maupun mengekspor diagram. File `.env.example` disediakan sebagai referensi konfigurasi tambahan apabila Anda mengembangkan integrasi lanjutan, sedangkan variabel `DISABLE_HMR=true` dapat digunakan bila ingin menonaktifkan *Hot Module Replacement* pada `vite.config.ts`.
+# Jalankan server pengembangan (http://localhost:3000)
+bun run dev   # atau: npm run dev
+```
 
 ### Build untuk Produksi
 
 ```bash
-# Menggunakan Bun
-bun run build
-bun run preview
-
-# Atau menggunakan npm
-npm run build
-npm run preview
+bun run build && bun run preview
+# atau
+npm run build && npm run preview
 ```
-
-Hasil build statis akan dibuat di direktori `dist/` dan dapat disajikan lewat `vite preview` (buka URL yang ditampilkan di terminal) maupun *static hosting* pilihan Anda.
 
 ---
 
 ## Menjalankan dengan Docker
 
-Repositori ini sudah dilengkapi [Dockerfile](Dockerfile) dan [.dockerignore](.dockerignore) dengan build *multi-stage* yang teroptimasi (`oven/bun:1-alpine` dengan *BuildKit cache mount* untuk build, serta `nginx:alpine` non-root pada port `5758` dengan kompresi gzip, cache aset statis, dan *healthcheck*).
-
-### Build Lokal
+Repositori ini dilengkapi [Dockerfile](Dockerfile) multi-stage (`oven/bun:1-alpine` + `nginx:alpine` non-root di port `5758` dengan gzip & healthcheck) dan workflow CI [.github/workflows/docker.yml](.github/workflows/docker.yml).
 
 ```bash
-# Build image produksi
 docker build -t infrasketch .
-
-# Jalankan kontainer pada port 5758
 docker run -d --name infrasketch -p 5758:5758 --restart unless-stopped infrasketch
 ```
 
 Buka `http://localhost:5758` di browser.
 
-Untuk menghentikan dan menghapus kontainer:
-```bash
-docker stop infrasketch && docker rm infrasketch
-```
-
-### Build Otomatis via GitHub Actions (GHCR)
-
-Setiap *push* ke branch `main` (atau tag `v*`) memicu workflow [.github/workflows/docker.yml](.github/workflows/docker.yml) untuk membangun image Docker dan mempublikasikannya ke GitHub Container Registry (`ghcr.io`):
-
-```bash
-# Tarik dan jalankan image terbaru dari GHCR
-docker pull ghcr.io/von-lubke/infra-sketch:latest
-docker run -d --name infrasketch -p 5758:5758 --restart unless-stopped ghcr.io/von-lubke/infra-sketch:latest
-```
-
 ---
 
 ## Cara Menggunakan
 
-### 1. Memulai dari Template atau Kanvas Kosong
-- Saat pertama kali dibuka (jika belum ada riwayat di `localStorage`), InfraSketch langsung memuat template **3-Tier Web App**.
-- Klik menu **Template Arsitektur** di bagian tengah header atas untuk beralih ke template `Microservices K8s`, `Serverless Cloud Pipeline`, atau `Kanvas Kosong`.
-- Klik judul diagram di pojok kiri atas (di sebelah tulisan **InfraSketch**) untuk mengganti nama dokumen.
-
-### 2. Menambahkan Komponen Cloud & Container Grup
-- Gunakan kotak pencarian atau tab filter (`Semua`, `Generik`, `AWS`, `GCP`, `K8s`) pada **sidebar kiri**.
-- **Seret & lepas (*drag-and-drop*)** item **Container Grup** (seperti `VPC Network`, `Public Subnet`, `Private Subnet`, `K8s Cluster`) atau **Komponen Cloud** langsung ke kanvas.
-- Atau **klik langsung** item di sidebar untuk menambahkannya ke bagian tengah tampilan kanvas saat ini.
-- Untuk mengubah ukuran container grup, klik container lalu tarik handle kotak di salah satu dari 4 sudutnya.
-
-### 3. Menghubungkan Komponen dengan Panah
-Ada dua cara untuk membuat konektor antar komponen:
-1. **Tarik dari titik sisi (*Anchor Port*)**: Arahkan kursor ke salah satu node hingga muncul 4 titik kecil (atas, kanan, bawah, kiri), lalu klik dan tarik salah satu titik tersebut ke node tujuan.
-2. **Mode Konektor (`C`)**: Klik tombol **Konektor** pada toolbar melayang di atas kanvas (atau tekan `C`), klik komponen awal, lalu klik komponen tujuan.
-
-### 4. Mengedit Label & Properti
-- **Edit Teks Cepat**: *Double-click* langsung pada node, label container grup, atau label panah konektor untuk mengetik teks baru (`Enter` untuk menyimpan, `Esc` untuk membatalkan).
-- **Panel Properti (Sidebar Kanan)**: Klik elemen apa pun di kanvas untuk membuka panel properti kontekstual:
-  - **Komponen**: Ubah *Label Layanan*, *Spesifikasi / Port*, warna sketsa, duplikat, atau hapus.
-  - **Container**: Ubah *Nama VPC / Subnet*, *CIDR / Region*, lihat dimensi (`px`), ubah warna sketsa, duplikat, atau hapus.
-  - **Konektor**: Ubah *Label Aliran / Protokol* (mis. `HTTPS`, `gRPC`, `TCP 5432`), *Gaya Garis* (`Solid` / `Putus-putus`), *Bentuk Jalur* (`Lengkung` / `Lurus`), *Arah Panah* (`Satu Arah` / `Dua Arah`), serta tombol **Balik Arah Koneksi**.
-
-### 5. Navigasi Kanvas & Presisi Tata Letak
-- **Geser Kanvas (*Pan*)**: Pilih alat **Geser** (`H`), tahan tombol `Space` sambil menyeret kanvas, gunakan klik tengah mouse, atau seret area kosong kanvas.
-- **Zoom & Fit-to-View**: Gunakan *scroll wheel* mouse atau panel kontrol di pojok kiri bawah (`-`, persentase zoom untuk reset `100%`, `+`, dan tombol *Fit-to-View*).
-- **Snap to Grid**: Aktifkan/nonaktifkan tombol **Snap** di pojok kiri bawah untuk menempelkan posisi elemen ke grid `20px`.
-
-### 6. Simpan, Bagikan & Ekspor Diagram
-- **Export JSON**: Klik **Export JSON** di kanan atas untuk mengunduh diagram sebagai file `<nama-diagram>.infrasketch.json`.
-- **Import JSON**: Klik **Import JSON** dan pilih file `.json` InfraSketch untuk memuat ulang diagram ke kanvas.
-- **Export PNG**: Klik **Export PNG** untuk membuka dialog pratinjau, pilih latar belakang (`Putih` / `Transparan`), skala (`1x` / `2x` / `3x`), dan padding (`24px` / `40px` / `64px`), lalu klik **Unduh PNG**.
+1. **Tambah Komponen, Container, atau Anotasi**: Seret dari sidebar kiri, klik item untuk tambah di tengah layar, atau tekan `T` (Catatan) / `G` (VPC).
+2. **Duplikat Cepat (`Ctrl+Drag`)**: Tahan `Ctrl` (atau `Alt`) sambil menyeret node, container, atau beberapa elemen terpilih untuk menduplikat beserta propertinya.
+3. **Hubungkan Layanan**: Tarik dari titik port di sisi komponen/container, atau aktifkan mode Konektor (`C`). Setelah terpilih, seret titik ujung panah untuk menyambung ulang.
+4. **Edit Properti**: *Double-click* untuk edit cepat teks di kanvas, klik kanan untuk menu konteks, atau ubah ikon, tema warna, tipe jalur (`Lengkung`/`Lurus`/`Siku`), dan arah panah di panel kanan.
+5. **Navigasi**: Two-finger scroll trackpad / `Space+Drag` / tool `H` untuk menggeser kanvas, `Ctrl+Scroll` (atau pinch) untuk zoom.
+6. **Ekspor**: Klik **Export** untuk PNG, SVG, atau salin gambar ke clipboard, serta **Export/Import JSON** untuk cadangan dokumen.
 
 ---
 
@@ -210,17 +131,22 @@ Ada dua cara untuk membuat konektor antar komponen:
 
 | Pintasan | Fungsi |
 | :--- | :--- |
-| `V` | Aktifkan alat **Pilih** (*Select*) |
-| `H` | Aktifkan alat **Geser** (*Pan*) |
-| `Space` (tahan + seret) | Geser kanvas sementara |
-| `C` | Aktifkan/nonaktifkan alat **Konektor** |
+| `V` / `H` / `C` / `T` | Pilih, Geser (Pan), Konektor, Catatan Teks |
 | `G` | Tambah cepat container **VPC Network** |
-| `Ctrl + Z` / `Cmd + Z` | Undo (urungkan perubahan) |
-| `Ctrl + Y` / `Ctrl + Shift + Z` | Redo (ulangi perubahan) |
-| `Ctrl + D` / `Cmd + D` | Duplikat komponen atau container terpilih |
-| `Delete` / `Backspace` | Hapus elemen yang sedang dipilih |
-| `Esc` | Batalkan seleksi, mode konektor, atau edit teks |
-| `Double-click` | Edit teks label komponen, container, atau konektor |
+| `Space + Drag` / `Scroll` | Geser kanvas (`Ctrl/⌘ + Scroll` untuk zoom) |
+| `Ctrl + Drag` / `Alt + Drag` | Duplikat komponen/container beserta propertinya |
+| `Shift + Klik / Drag` | Tambah seleksi atau buat kotak seleksi (marquee) |
+| `Ctrl + A` | Pilih semua elemen |
+| `Ctrl + C / X / V` | Salin, potong, dan tempel antar kanvas / tab |
+| `Ctrl + D` | Duplikat elemen terpilih di tempat |
+| `Ctrl + Alt + C / V` | Salin dan tempel gaya/warna properti |
+| `Panah` / `Shift + Panah` | Geser presisi `1px` / `20px` |
+| `]` / `[` | Bawa ke depan / kirim ke belakang (`Shift` = paling depan/belakang) |
+| `Ctrl + L` | Kunci / buka kunci posisi |
+| `Ctrl + Z` / `Ctrl + Y` | Undo / Redo |
+| `Ctrl + = / - / 0` | Zoom in, zoom out, reset `100%` |
+| `?` | Buka dialog bantuan pintasan |
+| `Delete` / `Backspace` / `Esc` | Hapus elemen terpilih / batalkan aksi |
 
 ---
 
@@ -228,36 +154,36 @@ Ada dua cara untuk membuat konektor antar komponen:
 
 ```text
 infra-sketch/
-├── .github/
-│   └── workflows/
-│       └── docker.yml          # Workflow GitHub Actions untuk build & push image Docker ke GHCR
-├── Dockerfile                  # Konfigurasi multi-stage Docker (Bun builder + Nginx non-root port 5758)
-├── .dockerignore               # Pengecualian file dari build context Docker
-├── index.html                  # Entry HTML + Google Fonts (Plus Jakarta Sans, Architects Daughter, JetBrains Mono)
-├── package.json                # Daftar dependensi & skrip Vite/TypeScript
-├── vite.config.ts              # Konfigurasi Vite + Tailwind CSS v4
-├── tsconfig.json               # Konfigurasi TypeScript
-├── .env.example                # Contoh variabel lingkungan
+├── .github/workflows/docker.yml   # CI: typecheck, lint, test, build & push image Docker ke GHCR
+├── Dockerfile                     # Multi-stage Docker (Bun builder + Nginx non-root port 5758)
+├── index.html                     # Entry HTML
+├── package.json                   # Dependensi & skrip
+├── vite.config.ts                 # Konfigurasi Vite + Tailwind CSS v4
+├── .oxlintrc.json                 # Konfigurasi Oxlint
 └── src/
-    ├── App.tsx                 # State dokumen, history undo/redo, auto-save localStorage, & shortcut global
-    ├── main.tsx                # Bootstrap React root
-    ├── index.css               # Konfigurasi Tailwind v4, font theme, dan scrollbar
-    ├── types/
-    │   └── diagram.ts          # Definisi tipe Node, Group, Edge, DiagramDocument, Viewport, & Export
+    ├── App.tsx                    # State dokumen, shortcut global, clipboard, & integrasi panel
+    ├── main.tsx                   # Bootstrap React StrictMode & font lokal
+    ├── index.css                  # Konfigurasi Tailwind v4 & font theme
+    ├── types/diagram.ts           # Definisi tipe Node, Group, Text, Edge, Selection, & Export
+    ├── hooks/useHistory.ts        # Reducer history murni dengan coalescing & deteksi no-op
     ├── data/
-    │   ├── catalog.ts          # 7 tema warna, path ikon vektor, 4 grup container, & 28 komponen multi-cloud
-    │   └── templates.ts        # 4 template arsitektur siap pakai
+    │   ├── catalog.ts             # 7 tema warna, path ikon vektor, 4 container, & 48 komponen
+    │   └── templates.ts           # 6 template arsitektur siap pakai
     ├── components/
-    │   ├── Header.tsx          # Header 3-zona: judul editable, pemilih template, import/export
-    │   ├── CatalogSidebar.tsx  # Sidebar katalog dengan pencarian, filter provider, & drag-and-drop
-    │   ├── Canvas.tsx          # Kanvas SVG interaktif, toolbar melayang, konektor, zoom/pan, & inline edit
-    │   ├── InspectorPanel.tsx  # Panel properti kontekstual untuk node, container, & konektor
-    │   ├── ExportPngModal.tsx  # Modal pratinjau & pengaturan export PNG (latar, skala, padding)
-    │   └── InfraIcon.tsx       # Komponen renderer ikon vektor SVG
+    │   ├── Header.tsx             # Header 3-zona
+    │   ├── CatalogSidebar.tsx     # Sidebar katalog collapsible dengan filter 5 provider
+    │   ├── Canvas.tsx             # Kanvas SVG interaktif, marquee, Ctrl+Drag, & inline edit
+    │   ├── InspectorPanel.tsx     # Panel properti tunggal & multi-select + pemilih ikon
+    │   ├── ExportModal.tsx        # Modal export PNG, SVG, & salin ke clipboard
+    │   ├── ContextMenu.tsx        # Menu konteks klik kanan
+    │   ├── ShortcutHelpModal.tsx  # Modal daftar pintasan (`?`)
+    │   └── InfraIcon.tsx          # Renderer ikon vektor SVG
     └── utils/
-        ├── roughSvg.ts         # Generator path bergaya sketsa RoughJS untuk SVG
-        ├── geometry.ts         # Kalkulasi anchor port, kurva Bezier, panah, snap grid, & bounding box
-        └── exportImport.ts     # Validasi/export JSON & rendering HTML5 Canvas 2D untuk PNG
+        ├── roughSvg.ts            # Generator path sketsa RoughJS
+        ├── geometry.ts            # Anchor port, Bezier, orthogonal routing, bounds, & containment
+        ├── diagramOps.ts          # Kloning, clipboard, nudge, z-order, & gaya
+        ├── fonts.ts               # Embed WOFF2 lokal untuk export SVG offline
+        └── exportImport.ts        # Validasi/migrasi JSON v1→v2, Canvas PNG, & SVG builder
 ```
 
 ---
@@ -267,7 +193,9 @@ infra-sketch/
 | Perintah (`bun run` / `npm run`) | Deskripsi |
 | :--- | :--- |
 | `dev` | Menjalankan server pengembangan Vite di port `3000` (`--host=0.0.0.0`) |
-| `build` | Mem-build aplikasi untuk produksi ke folder `dist/` |
-| `preview` | Menjalankan pratinjau lokal dari hasil `build` produksi |
-| `lint` | Menjalankan pengecekan tipe TypeScript (`tsc --noEmit`) |
-| `clean` | Menghapus direktori `dist/` dan file `server.js` (jika ada) |
+| `build` | Mem-build aplikasi produksi ke folder `dist/` |
+| `preview` | Pratinjau lokal hasil `build` |
+| `typecheck` | Pengecekan tipe TypeScript (`tsc --noEmit`) |
+| `lint` | Pengecekan kode dengan Oxlint (`oxlint src`) |
+| `test` | Menjalankan unit test dengan Vitest (`vitest run`) |
+| `clean` | Menghapus direktori `dist/` |

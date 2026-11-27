@@ -20,21 +20,13 @@
   }
 }
 
-/* Custom subtle scrollbars for sidebar & inspector */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Hide scrollbars by default; show smoothly on hover or while scrolling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+*:hover,
+*.is-scrolling {
+  scrollbar-color: #94a3b8 transparent;
 }

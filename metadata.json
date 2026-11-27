@@ -1,6 +1,0 @@
-{
-  "name": "InfraSketch",
-  "description": "Tool diagram arsitektur infrastruktur bergaya sketsa ala Excalidraw dengan drag-and-drop komponen multi-cloud, VPC container, panah berlabel, template siap pakai, serta export PNG dan import/export JSON.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

@@ -1,5 +1,6 @@
 import rough from 'roughjs';
 import type { Drawable, Options } from 'roughjs/bin/core';
+import { ArrowHeadMode } from '../types/diagram';
 import { EdgeGeometry, getArrowheadPoints } from './geometry';
 
 export interface RoughPathInfo {
@@ -84,12 +85,32 @@ export function generateGroupSketchPaths(
   return drawableToPaths(drawable, dashed ? [8, 6] : undefined);
 }
 
+export function generateNoteSketchPaths(
+  width: number,
+  height: number,
+  fill: string,
+  stroke: string,
+  seed: number
+): RoughPathInfo[] {
+  const pathD = buildRoundedRectPath(0, 0, width, height, 8);
+  const options: Options = {
+    seed,
+    roughness: 0.95,
+    bowing: 0.8,
+    stroke,
+    strokeWidth: 1.45,
+    fill,
+    fillStyle: 'solid',
+  };
+  return drawableToPaths(generator.path(pathD, options));
+}
+
 export function generateEdgeSketchPaths(
   geom: EdgeGeometry,
   stroke: string,
   seed: number,
   dashed: boolean,
-  bidirectional: boolean
+  arrowHead: ArrowHeadMode
 ): RoughPathInfo[] {
   const dash = dashed ? [7, 5] : undefined;
   const lineOptions: Options = {
@@ -112,13 +133,13 @@ export function generateEdgeSketchPaths(
     strokeWidth: 1.85,
   };
 
-  // End arrowhead
-  const [ep1, ep2] = getArrowheadPoints(geom.end, geom.endAngle, 12, 0.45);
-  const endArrowPath = `M ${ep1.x} ${ep1.y} L ${geom.end.x} ${geom.end.y} L ${ep2.x} ${ep2.y}`;
-  paths.push(...drawableToPaths(generator.path(endArrowPath, arrowOptions)));
+  if (arrowHead === 'end' || arrowHead === 'both') {
+    const [ep1, ep2] = getArrowheadPoints(geom.end, geom.endAngle, 12, 0.45);
+    const endArrowPath = `M ${ep1.x} ${ep1.y} L ${geom.end.x} ${geom.end.y} L ${ep2.x} ${ep2.y}`;
+    paths.push(...drawableToPaths(generator.path(endArrowPath, arrowOptions)));
+  }
 
-  // Optional start arrowhead for bidirectional edges
-  if (bidirectional) {
+  if (arrowHead === 'both') {
     const [sp1, sp2] = getArrowheadPoints(geom.start, geom.startAngle, 12, 0.45);
     const startArrowPath = `M ${sp1.x} ${sp1.y} L ${geom.start.x} ${geom.start.y} L ${sp2.x} ${sp2.y}`;
     paths.push(...drawableToPaths(generator.path(startArrowPath, { ...arrowOptions, seed: seed + 31 })));

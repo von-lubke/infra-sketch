@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BoxSelect, Search, X } from 'lucide-react';
+import { BoxSelect, PanelLeftClose, PanelLeftOpen, Search, StickyNote, X } from 'lucide-react';
 import {
   CATALOG_COMPONENTS,
   CATALOG_GROUPS,
@@ -10,13 +10,22 @@ import { CatalogComponent, CatalogGroup, Provider } from '../types/diagram';
 import { InfraIcon } from './InfraIcon';
 
 interface CatalogSidebarProps {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onQuickAddNode: (component: CatalogComponent) => void;
   onQuickAddGroup: (group: CatalogGroup) => void;
+  onQuickAddText: (variant: 'note' | 'text') => void;
 }
 
-const PROVIDER_TABS: Array<Provider | 'all'> = ['all', 'generic', 'aws', 'gcp', 'k8s'];
+const PROVIDER_TABS: Array<Provider | 'all'> = ['all', 'generic', 'aws', 'gcp', 'azure', 'k8s'];
 
-export function CatalogSidebar({ onQuickAddNode, onQuickAddGroup }: CatalogSidebarProps) {
+export function CatalogSidebar({
+  collapsed,
+  onToggleCollapse,
+  onQuickAddNode,
+  onQuickAddGroup,
+  onQuickAddText,
+}: CatalogSidebarProps) {
   const [search, setSearch] = useState('');
   const [activeProvider, setActiveProvider] = useState<Provider | 'all'>('all');
 
@@ -52,10 +61,44 @@ export function CatalogSidebar({ onQuickAddNode, onQuickAddGroup }: CatalogSideb
     e.dataTransfer.effectAllowed = 'copy';
   };
 
+  const handleDragStartText = (e: React.DragEvent, variant: 'note' | 'text') => {
+    e.dataTransfer.setData('application/infrasketch-item', JSON.stringify({ itemKind: 'text', variant }));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  if (collapsed) {
+    return (
+      <div className="shrink-0 bg-white border-r border-slate-200 flex flex-col items-center py-3 px-1.5 z-20">
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          title="Buka Sidebar Katalog"
+          aria-label="Buka sidebar katalog"
+          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+        >
+          <PanelLeftOpen className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <aside className="w-[264px] shrink-0 bg-white border-r border-slate-200 flex flex-col h-full z-20">
-      {/* Search + Provider Filter */}
+      {/* Header + Search + Provider Filter */}
       <div className="p-4 border-b border-slate-200 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-800">Katalog Komponen</span>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title="Sembunyikan Sidebar"
+            aria-label="Sembunyikan sidebar katalog"
+            className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
+        </div>
+
         <div className="relative">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -77,8 +120,8 @@ export function CatalogSidebar({ onQuickAddNode, onQuickAddGroup }: CatalogSideb
           )}
         </div>
 
-        {/* Segmented Provider Tabs */}
-        <div className="grid grid-cols-5 gap-0.5 p-1 bg-slate-100 rounded-lg">
+        {/* Provider Tabs */}
+        <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
           {PROVIDER_TABS.map((prov) => {
             const active = activeProvider === prov;
             return (
@@ -86,7 +129,7 @@ export function CatalogSidebar({ onQuickAddNode, onQuickAddGroup }: CatalogSideb
                 key={prov}
                 type="button"
                 onClick={() => setActiveProvider(prov)}
-                className={`py-1.5 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                className={`py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                   active
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -134,6 +177,51 @@ export function CatalogSidebar({ onQuickAddNode, onQuickAddGroup }: CatalogSideb
                   </button>
                 );
               })}
+            </div>
+          </section>
+        )}
+
+        {/* Sticky Note & Free Text */}
+        {!search.trim() && (
+          <section>
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 className="text-xs font-semibold text-slate-700">Anotasi</h2>
+              <span className="text-[11px] text-slate-400 tabular-nums">2</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                draggable
+                onDragStart={(e) => handleDragStartText(e, 'note')}
+                onClick={() => onQuickAddText('note')}
+                title="Seret atau klik untuk menambah Sticky Note"
+                className="flex flex-col items-start gap-1.5 p-2.5 rounded-lg border border-amber-200 bg-amber-50/70 hover:border-amber-400 text-left transition-colors cursor-grab active:cursor-grabbing"
+              >
+                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-amber-100 text-amber-700">
+                  <StickyNote className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 w-full">
+                  <div className="text-xs font-medium text-slate-800 truncate">Sticky Note</div>
+                  <div className="text-[10px] text-slate-500 truncate">Catatan sketsa</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                draggable
+                onDragStart={(e) => handleDragStartText(e, 'text')}
+                onClick={() => onQuickAddText('text')}
+                title="Seret atau klik untuk menambah Teks Bebas"
+                className="flex flex-col items-start gap-1.5 p-2.5 rounded-lg border border-slate-200 bg-white hover:border-indigo-400 text-left transition-colors cursor-grab active:cursor-grabbing"
+              >
+                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-slate-100 text-slate-700 font-bold text-xs">
+                  T
+                </div>
+                <div className="min-w-0 w-full">
+                  <div className="text-xs font-medium text-slate-800 truncate">Teks Bebas</div>
+                  <div className="text-[10px] text-slate-500 truncate">Judul / Legenda</div>
+                </div>
+              </button>
             </div>
           </section>
         )}
@@ -198,7 +286,7 @@ export function CatalogSidebar({ onQuickAddNode, onQuickAddGroup }: CatalogSideb
 
       {/* Subtle Usage Tip */}
       <div className="px-4 py-3 border-t border-slate-200 bg-slate-50/70 text-[11px] text-slate-500 leading-relaxed">
-        Seret item ke kanvas atau klik langsung untuk menambahkan di tengah layar.
+        Seret item ke kanvas atau klik langsung. Tahan Ctrl+Drag di kanvas untuk duplikat.
       </div>
     </aside>
   );

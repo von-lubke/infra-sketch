@@ -1,41 +1,63 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from './components/Canvas';
 import { CatalogSidebar } from './components/CatalogSidebar';
-import { ExportPngModal } from './components/ExportPngModal';
+import { ContextMenu, ContextMenuState } from './components/ContextMenu';
+import { ExportModal } from './components/ExportModal';
 import { Header } from './components/Header';
 import { InspectorPanel } from './components/InspectorPanel';
+import { ShortcutHelpModal } from './components/ShortcutHelpModal';
 import {
   CATALOG_COMPONENTS,
   CATALOG_GROUPS,
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,
+  DEFAULT_TEXT_HEIGHT,
+  DEFAULT_TEXT_WIDTH,
+  GRID_SIZE,
 } from './data/catalog';
 import { ARCHITECTURE_TEMPLATES, ArchitectureTemplate } from './data/templates';
+import { useHistory } from './hooks/useHistory';
 import {
   AnchorSide,
   CatalogComponent,
   CatalogGroup,
+  ColorTheme,
+  CopiedStyle,
   DiagramDocument,
+  EndpointKind,
   InfraEdge,
   InfraGroup,
   InfraNode,
+  InfraText,
   Selection,
   ToolMode,
   Viewport,
 } from './types/diagram';
 import {
-  exportDiagramToJson,
-  parseAndValidateDiagramJson,
-} from './utils/exportImport';
+  applyCopiedStyle,
+  buildClipboardEnvelope,
+  ClipboardEnvelope,
+  cloneElements,
+  deleteSelection,
+  extractCopiedStyle,
+  nudgeSelection,
+  parseClipboardEnvelope,
+  pasteClipboardEnvelope,
+  reconcileContainment,
+  reorderSelection,
+  selectionHas,
+} from './utils/diagramOps';
+import { exportDiagramToJson, parseAndValidateDiagramJson } from './utils/exportImport';
 import {
   computeDiagramBounds,
+  findSmallestContainingGroup,
   generateId,
   randomSeed,
   snapValue,
 } from './utils/geometry';
 
 const STORAGE_KEY = 'infrasketch:document:v1';
-const MAX_HISTORY = 40;
+const CLIPBOARD_STORAGE_KEY = 'infrasketch:clipboard:v1';
 
 interface ToastMessage {
   id: number;
@@ -57,18 +79,45 @@ function loadInitialDocument(): DiagramDocument {
 }
 
 export default function App() {
-  const [doc, setDoc] = useState<DiagramDocument>(() => loadInitialDocument());
-  const [past, setPast] = useState<DiagramDocument[]>([]);
-  const [future, setFuture] = useState<DiagramDocument[]>([]);
-  const [selection, setSelection] = useState<Selection>(null);
+  const {
+    doc,
+    canUndo,
+    canRedo,
+    setDocument,
+    setTransient,
+    commitBefore,
+    revertTransient,
+    undo,
+    redo,
+  } = useHistory(loadInitialDocument);
+
+  const [selection, setSelection] = useState<Selection>([]);
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [viewport, setViewport] = useState<Viewport>({ panX: 40, panY: 40, zoom: 0.92 });
-  const [exportPngOpen, setExportPngOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [copiedStyle, setCopiedStyle] = useState<CopiedStyle | null>(null);
+  const [clipboardFallback, setClipboardFallback] = useState<ClipboardEnvelope | null>(() => {
+    try {
+      const saved = localStorage.getItem(CLIPBOARD_STORAGE_KEY);
+      return saved ? parseClipboardEnvelope(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const clipboardRef = useRef<ClipboardEnvelope | null>(clipboardFallback);
+  const latestDocRef = useRef(doc);
+
+  useEffect(() => {
+    latestDocRef.current = doc;
+  }, [doc]);
 
   const showToast = useCallback((text: string, tone: 'neutral' | 'error' = 'neutral') => {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -78,16 +127,49 @@ export default function App() {
     }, 3200);
   }, []);
 
-  // Persist current diagram safely to localStorage
+  // Debounced auto-save to localStorage + flush on page unload
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
-    } catch {
-      // Ignore storage quota errors silently
-    }
+    const timer = window.setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
+      } catch {
+        // Ignore storage quota errors silently
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
   }, [doc]);
 
-  // Fit diagram cleanly into visible canvas container
+  useEffect(() => {
+    const flushSave = () => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(latestDocRef.current));
+      } catch {
+        // Ignore
+      }
+    };
+    window.addEventListener('beforeunload', flushSave);
+    return () => window.removeEventListener('beforeunload', flushSave);
+  }, []);
+
+  // Reveal scrollbars briefly while any container is actively scrolling
+  useEffect(() => {
+    const timers = new WeakMap<HTMLElement, number>();
+    const onScroll = (e: Event) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      target.classList.add('is-scrolling');
+      const prevTimer = timers.get(target);
+      if (prevTimer) window.clearTimeout(prevTimer);
+      const nextTimer = window.setTimeout(() => {
+        target.classList.remove('is-scrolling');
+        timers.delete(target);
+      }, 900);
+      timers.set(target, nextTimer);
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
+  }, []);
+
   const fitToView = useCallback((targetDoc: DiagramDocument) => {
     const container = canvasContainerRef.current;
     if (!container) return;
@@ -115,56 +197,22 @@ export default function App() {
     });
   }, []);
 
-  // Run initial Fit-to-View once mounted
   useEffect(() => {
     const id = window.requestAnimationFrame(() => {
-      fitToView(doc);
+      fitToView(latestDocRef.current);
     });
     return () => window.cancelAnimationFrame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // History-aware document mutation
-  const updateDocument = useCallback((updater: (prev: DiagramDocument) => DiagramDocument) => {
-    setDoc((prev) => {
-      const next = updater(prev);
-      if (next === prev) return prev;
-      setPast((h) => [...h.slice(-(MAX_HISTORY - 1)), prev]);
-      setFuture([]);
-      return { ...next, updatedAt: new Date().toISOString() };
-    });
-  }, []);
-
-  const commitBeforeSnapshot = useCallback((beforeSnapshot: DiagramDocument) => {
-    setPast((h) => [...h.slice(-(MAX_HISTORY - 1)), beforeSnapshot]);
-    setFuture([]);
-  }, []);
+  }, [fitToView]);
 
   const handleUndo = useCallback(() => {
-    setPast((prevPast) => {
-      if (prevPast.length === 0) return prevPast;
-      const previousDoc = prevPast[prevPast.length - 1];
-      setDoc((currentDoc) => {
-        setFuture((f) => [currentDoc, ...f.slice(0, MAX_HISTORY - 1)]);
-        return previousDoc;
-      });
-      setSelection(null);
-      return prevPast.slice(0, -1);
-    });
-  }, []);
+    undo();
+    setSelection([]);
+  }, [undo]);
 
   const handleRedo = useCallback(() => {
-    setFuture((prevFuture) => {
-      if (prevFuture.length === 0) return prevFuture;
-      const nextDoc = prevFuture[0];
-      setDoc((currentDoc) => {
-        setPast((p) => [...p.slice(-(MAX_HISTORY - 1)), currentDoc]);
-        return nextDoc;
-      });
-      setSelection(null);
-      return prevFuture.slice(1);
-    });
-  }, []);
+    redo();
+    setSelection([]);
+  }, [redo]);
 
   const getViewportCenterWorld = useCallback(() => {
     const rect = canvasContainerRef.current?.getBoundingClientRect();
@@ -179,53 +227,105 @@ export default function App() {
   const addNodeAt = useCallback(
     (component: CatalogComponent, worldX: number, worldY: number) => {
       const id = generateId('node');
-      const newNode: InfraNode = {
-        id,
-        type: component.id,
-        provider: component.provider,
-        label: component.label,
-        sublabel: component.defaultSublabel,
-        iconKey: component.iconKey,
-        x: snapValue(worldX - DEFAULT_NODE_WIDTH / 2, snapToGrid),
-        y: snapValue(worldY - DEFAULT_NODE_HEIGHT / 2, snapToGrid),
-        width: DEFAULT_NODE_WIDTH,
-        height: DEFAULT_NODE_HEIGHT,
-        colorTheme: component.colorTheme,
-        seed: randomSeed(),
-      };
-      updateDocument((prev) => ({
-        ...prev,
-        nodes: [...prev.nodes, newNode],
-      }));
-      setSelection({ kind: 'node', id });
+      const x = snapValue(worldX - DEFAULT_NODE_WIDTH / 2, snapToGrid);
+      const y = snapValue(worldY - DEFAULT_NODE_HEIGHT / 2, snapToGrid);
+      setDocument((prev) => {
+        const parent = findSmallestContainingGroup(prev.groups, {
+          x,
+          y,
+          width: DEFAULT_NODE_WIDTH,
+          height: DEFAULT_NODE_HEIGHT,
+        });
+        const newNode: InfraNode = {
+          id,
+          type: component.id,
+          provider: component.provider,
+          label: component.label,
+          sublabel: component.defaultSublabel,
+          iconKey: component.iconKey,
+          x,
+          y,
+          width: DEFAULT_NODE_WIDTH,
+          height: DEFAULT_NODE_HEIGHT,
+          colorTheme: component.colorTheme,
+          seed: randomSeed(),
+          parentId: parent?.id,
+        };
+        return { ...prev, nodes: [...prev.nodes, newNode] };
+      });
+      setSelection([{ kind: 'node', id }]);
       setToolMode('select');
     },
-    [snapToGrid, updateDocument]
+    [setDocument, snapToGrid]
   );
 
   const addGroupAt = useCallback(
     (groupDef: CatalogGroup, worldX: number, worldY: number) => {
       const id = generateId('grp');
-      const newGroup: InfraGroup = {
-        id,
-        kind: groupDef.kind,
-        label: groupDef.label,
-        meta: groupDef.defaultMeta,
-        x: snapValue(worldX - groupDef.defaultWidth / 2, snapToGrid),
-        y: snapValue(worldY - groupDef.defaultHeight / 2, snapToGrid),
-        width: groupDef.defaultWidth,
-        height: groupDef.defaultHeight,
-        colorTheme: groupDef.colorTheme,
-        seed: randomSeed(),
-      };
-      updateDocument((prev) => ({
-        ...prev,
-        groups: [...prev.groups, newGroup],
-      }));
-      setSelection({ kind: 'group', id });
+      const x = snapValue(worldX - groupDef.defaultWidth / 2, snapToGrid);
+      const y = snapValue(worldY - groupDef.defaultHeight / 2, snapToGrid);
+      setDocument((prev) => {
+        const candidates = prev.groups.filter(
+          (g) => g.width * g.height > groupDef.defaultWidth * groupDef.defaultHeight
+        );
+        const parent = findSmallestContainingGroup(candidates, {
+          x,
+          y,
+          width: groupDef.defaultWidth,
+          height: groupDef.defaultHeight,
+        });
+        const newGroup: InfraGroup = {
+          id,
+          kind: groupDef.kind,
+          label: groupDef.label,
+          meta: groupDef.defaultMeta,
+          x,
+          y,
+          width: groupDef.defaultWidth,
+          height: groupDef.defaultHeight,
+          colorTheme: groupDef.colorTheme,
+          seed: randomSeed(),
+          parentId: parent?.id,
+        };
+        return { ...prev, groups: [...prev.groups, newGroup] };
+      });
+      setSelection([{ kind: 'group', id }]);
       setToolMode('select');
     },
-    [snapToGrid, updateDocument]
+    [setDocument, snapToGrid]
+  );
+
+  const addTextAt = useCallback(
+    (worldX: number, worldY: number, variant: 'note' | 'text' = 'note'): string => {
+      const id = generateId('txt');
+      const x = snapValue(worldX - DEFAULT_TEXT_WIDTH / 2, snapToGrid);
+      const y = snapValue(worldY - DEFAULT_TEXT_HEIGHT / 2, snapToGrid);
+      setDocument((prev) => {
+        const parent = findSmallestContainingGroup(prev.groups, {
+          x,
+          y,
+          width: DEFAULT_TEXT_WIDTH,
+          height: DEFAULT_TEXT_HEIGHT,
+        });
+        const newText: InfraText = {
+          id,
+          text: variant === 'note' ? 'Catatan baru' : 'Teks anotasi',
+          variant,
+          x,
+          y,
+          width: DEFAULT_TEXT_WIDTH,
+          height: DEFAULT_TEXT_HEIGHT,
+          colorTheme: variant === 'note' ? 'amber' : 'slate',
+          seed: randomSeed(),
+          parentId: parent?.id,
+        };
+        return { ...prev, texts: [...prev.texts, newText] };
+      });
+      setSelection([{ kind: 'text', id }]);
+      setToolMode('select');
+      return id;
+    },
+    [setDocument, snapToGrid]
   );
 
   const handleQuickAddNode = useCallback(
@@ -246,159 +346,349 @@ export default function App() {
     [addGroupAt, doc.groups.length, getViewportCenterWorld]
   );
 
+  const handleQuickAddText = useCallback(
+    (variant: 'note' | 'text') => {
+      const center = getViewportCenterWorld();
+      const jitter = ((doc.texts.length % 4) - 1) * 24;
+      addTextAt(center.x + jitter, center.y + jitter, variant);
+    },
+    [addTextAt, doc.texts.length, getViewportCenterWorld]
+  );
+
   const handleDropCatalogItem = useCallback(
     (rawPayload: string, worldX: number, worldY: number) => {
       try {
-        const parsed = JSON.parse(rawPayload) as { itemKind: 'node'; id: string } | { itemKind: 'group'; kind: string };
+        const parsed = JSON.parse(rawPayload) as
+          | { itemKind: 'node'; id: string }
+          | { itemKind: 'group'; kind: string }
+          | { itemKind: 'text'; variant: 'note' | 'text' };
         if (parsed.itemKind === 'node') {
           const comp = CATALOG_COMPONENTS.find((c) => c.id === parsed.id);
           if (comp) addNodeAt(comp, worldX, worldY);
         } else if (parsed.itemKind === 'group') {
           const grp = CATALOG_GROUPS.find((g) => g.kind === parsed.kind);
           if (grp) addGroupAt(grp, worldX, worldY);
+        } else if (parsed.itemKind === 'text') {
+          addTextAt(worldX, worldY, parsed.variant === 'text' ? 'text' : 'note');
         }
       } catch {
         // Ignore malformed drag data
       }
     },
-    [addGroupAt, addNodeAt]
+    [addGroupAt, addNodeAt, addTextAt]
   );
 
   const handleCreateEdge = useCallback(
-    (sourceId: string, sourceAnchor: AnchorSide, targetId: string, targetAnchor: AnchorSide) => {
-      if (sourceId === targetId) return;
+    (
+      sourceId: string,
+      sourceKind: EndpointKind,
+      sourceAnchor: AnchorSide,
+      targetId: string,
+      targetKind: EndpointKind,
+      targetAnchor: AnchorSide
+    ) => {
+      if (sourceKind === targetKind && sourceId === targetId) return;
       const id = generateId('edge');
       const newEdge: InfraEdge = {
         id,
         sourceId,
+        sourceKind,
         sourceAnchor,
         targetId,
+        targetKind,
         targetAnchor,
-        label: 'HTTPS',
+        label: '',
         lineStyle: 'solid',
-        curveType: 'curved',
-        bidirectional: false,
+        routing: 'curved',
+        arrowHead: 'end',
         colorTheme: 'slate',
         seed: randomSeed(),
       };
-      updateDocument((prev) => ({
+      setDocument((prev) => ({
         ...prev,
         edges: [...prev.edges, newEdge],
       }));
-      setSelection({ kind: 'edge', id });
+      setSelection([{ kind: 'edge', id }]);
     },
-    [updateDocument]
+    [setDocument]
   );
 
-  const handleTransientUpdateNode = useCallback((id: string, patch: Partial<InfraNode>) => {
-    setDoc((prev) => ({
-      ...prev,
-      nodes: prev.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)),
-    }));
-  }, []);
-
-  const handleTransientUpdateGroup = useCallback((id: string, patch: Partial<InfraGroup>) => {
-    setDoc((prev) => ({
-      ...prev,
-      groups: prev.groups.map((g) => (g.id === id ? { ...g, ...patch } : g)),
-    }));
-  }, []);
-
-  const handleUpdateNode = useCallback(
-    (id: string, patch: Partial<InfraNode>) => {
-      updateDocument((prev) => ({
+  const handleReconnectEdge = useCallback(
+    (
+      edgeId: string,
+      end: 'source' | 'target',
+      endpointId: string,
+      endpointKind: EndpointKind,
+      anchor: AnchorSide
+    ) => {
+      setDocument((prev) => ({
         ...prev,
-        nodes: prev.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)),
+        edges: prev.edges.map((e) => {
+          if (e.id !== edgeId) return e;
+          if (end === 'source') {
+            if ((e.targetKind ?? 'node') === endpointKind && e.targetId === endpointId) return e;
+            return { ...e, sourceId: endpointId, sourceKind: endpointKind, sourceAnchor: anchor };
+          }
+          if ((e.sourceKind ?? 'node') === endpointKind && e.sourceId === endpointId) return e;
+          return { ...e, targetId: endpointId, targetKind: endpointKind, targetAnchor: anchor };
+        }),
       }));
     },
-    [updateDocument]
+    [setDocument]
+  );
+
+  const handleCommitDragMove = useCallback(
+    (beforeSnapshot: DiagramDocument, movedSelection: Selection) => {
+      setTransient((prev) => reconcileContainment(prev, movedSelection));
+      commitBefore(beforeSnapshot);
+    },
+    [commitBefore, setTransient]
+  );
+
+  const handleDuplicateForDrag = useCallback(
+    (baseDoc: DiagramDocument, targetSelection: Selection) => {
+      return cloneElements(baseDoc, targetSelection, { x: 0, y: 0 });
+    },
+    []
+  );
+
+  const handleUpdateNode = useCallback(
+    (id: string, patch: Partial<InfraNode>, coalesceKey?: string) => {
+      setDocument(
+        (prev) => ({
+          ...prev,
+          nodes: prev.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)),
+        }),
+        coalesceKey
+      );
+    },
+    [setDocument]
   );
 
   const handleUpdateGroup = useCallback(
-    (id: string, patch: Partial<InfraGroup>) => {
-      updateDocument((prev) => ({
-        ...prev,
-        groups: prev.groups.map((g) => (g.id === id ? { ...g, ...patch } : g)),
-      }));
+    (id: string, patch: Partial<InfraGroup>, coalesceKey?: string) => {
+      setDocument(
+        (prev) => ({
+          ...prev,
+          groups: prev.groups.map((g) => (g.id === id ? { ...g, ...patch } : g)),
+        }),
+        coalesceKey
+      );
     },
-    [updateDocument]
+    [setDocument]
   );
 
   const handleUpdateEdge = useCallback(
-    (id: string, patch: Partial<InfraEdge>) => {
-      updateDocument((prev) => ({
-        ...prev,
-        edges: prev.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)),
-      }));
+    (id: string, patch: Partial<InfraEdge>, coalesceKey?: string) => {
+      setDocument(
+        (prev) => ({
+          ...prev,
+          edges: prev.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+        }),
+        coalesceKey
+      );
     },
-    [updateDocument]
+    [setDocument]
+  );
+
+  const handleUpdateText = useCallback(
+    (id: string, patch: Partial<InfraText>, coalesceKey?: string) => {
+      setDocument(
+        (prev) => ({
+          ...prev,
+          texts: prev.texts.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        }),
+        coalesceKey
+      );
+    },
+    [setDocument]
   );
 
   const handleDeleteSelected = useCallback(() => {
-    if (!selection) return;
-    updateDocument((prev) => {
-      if (selection.kind === 'node') {
-        return {
-          ...prev,
-          nodes: prev.nodes.filter((n) => n.id !== selection.id),
-          edges: prev.edges.filter((e) => e.sourceId !== selection.id && e.targetId !== selection.id),
-        };
-      }
-      if (selection.kind === 'group') {
-        return {
-          ...prev,
-          groups: prev.groups.filter((g) => g.id !== selection.id),
-        };
-      }
-      return {
-        ...prev,
-        edges: prev.edges.filter((e) => e.id !== selection.id),
-      };
-    });
-    setSelection(null);
-  }, [selection, updateDocument]);
+    if (selection.length === 0) return;
+    setDocument((prev) => deleteSelection(prev, selection));
+    setSelection([]);
+  }, [selection, setDocument]);
 
   const handleDuplicateSelected = useCallback(() => {
-    if (!selection) return;
-    if (selection.kind === 'node') {
-      const target = doc.nodes.find((n) => n.id === selection.id);
-      if (!target) return;
-      const id = generateId('node');
-      const copy: InfraNode = {
-        ...target,
-        id,
-        x: target.x + 28,
-        y: target.y + 28,
-        seed: randomSeed(),
-      };
-      updateDocument((prev) => ({ ...prev, nodes: [...prev.nodes, copy] }));
-      setSelection({ kind: 'node', id });
-    } else if (selection.kind === 'group') {
-      const target = doc.groups.find((g) => g.id === selection.id);
-      if (!target) return;
-      const id = generateId('grp');
-      const copy: InfraGroup = {
-        ...target,
-        id,
-        x: target.x + 32,
-        y: target.y + 32,
-        seed: randomSeed(),
-      };
-      updateDocument((prev) => ({ ...prev, groups: [...prev.groups, copy] }));
-      setSelection({ kind: 'group', id });
+    if (selection.length === 0) return;
+    const { nextDoc, clonedSelection } = cloneElements(doc, selection, { x: 28, y: 28 });
+    if (clonedSelection.length === 0) return;
+    setDocument(() => nextDoc);
+    setSelection(clonedSelection);
+  }, [doc, selection, setDocument]);
+
+  const saveClipboardEnvelope = useCallback((envelope: ClipboardEnvelope) => {
+    clipboardRef.current = envelope;
+    setClipboardFallback(envelope);
+    const json = JSON.stringify(envelope);
+    try {
+      localStorage.setItem(CLIPBOARD_STORAGE_KEY, json);
+    } catch {
+      // Ignore storage quota errors
     }
-  }, [doc.groups, doc.nodes, selection, updateDocument]);
+    try {
+      if (navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(json).catch(() => {});
+      }
+    } catch {
+      // Ignore clipboard write errors
+    }
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    const envelope = buildClipboardEnvelope(doc, selection);
+    if (!envelope) return;
+    saveClipboardEnvelope(envelope);
+    showToast('Elemen disalin.');
+  }, [doc, saveClipboardEnvelope, selection, showToast]);
+
+  const handleCut = useCallback(() => {
+    const envelope = buildClipboardEnvelope(doc, selection);
+    if (!envelope) return;
+    saveClipboardEnvelope(envelope);
+    setDocument((prev) => deleteSelection(prev, selection));
+    setSelection([]);
+    showToast('Elemen dipotong.');
+  }, [doc, saveClipboardEnvelope, selection, setDocument, showToast]);
+
+  const handlePaste = useCallback(
+    async (targetWorld?: { x: number; y: number }) => {
+      let envelope: ClipboardEnvelope | null = null;
+      try {
+        const perm = await navigator.permissions?.query({ name: 'clipboard-read' as PermissionName });
+        if (perm?.state === 'granted' && navigator.clipboard?.readText) {
+          const text = await Promise.race([
+            navigator.clipboard.readText(),
+            new Promise<string>((_, reject) => window.setTimeout(() => reject(new Error('timeout')), 80)),
+          ]);
+          envelope = parseClipboardEnvelope(text);
+        }
+      } catch {
+        // Ignore permission/read errors and use local clipboard
+      }
+      if (!envelope) {
+        try {
+          const saved = localStorage.getItem(CLIPBOARD_STORAGE_KEY);
+          if (saved) envelope = parseClipboardEnvelope(saved);
+        } catch {
+          // Ignore
+        }
+      }
+      if (!envelope) envelope = clipboardRef.current ?? clipboardFallback;
+      if (!envelope) return;
+
+      let offset = { x: 32, y: 32 };
+      if (targetWorld) {
+        const allBoxes = [...envelope.groups, ...envelope.nodes, ...envelope.texts];
+        if (allBoxes.length > 0) {
+          const minX = Math.min(...allBoxes.map((b) => b.x));
+          const minY = Math.min(...allBoxes.map((b) => b.y));
+          offset = {
+            x: snapValue(targetWorld.x - minX, snapToGrid),
+            y: snapValue(targetWorld.y - minY, snapToGrid),
+          };
+        }
+      }
+
+      const { nextDoc, pastedSelection } = pasteClipboardEnvelope(latestDocRef.current, envelope, offset);
+      if (pastedSelection.length === 0) return;
+      setDocument(() => nextDoc);
+      setSelection(pastedSelection);
+    },
+    [clipboardFallback, setDocument, snapToGrid]
+  );
+
+  const handleCopyStyle = useCallback(() => {
+    if (selection.length === 0) return;
+    const style = extractCopiedStyle(doc, selection[0]);
+    if (!style) return;
+    setCopiedStyle(style);
+    showToast('Gaya komponen disalin.');
+  }, [doc, selection, showToast]);
+
+  const handlePasteStyle = useCallback(() => {
+    if (!copiedStyle || selection.length === 0) return;
+    setDocument((prev) => applyCopiedStyle(prev, selection, copiedStyle));
+    showToast('Gaya diterapkan.');
+  }, [copiedStyle, selection, setDocument, showToast]);
+
+  const handleBulkSetColor = useCallback(
+    (color: ColorTheme) => {
+      if (selection.length === 0) return;
+      setDocument((prev) => ({
+        ...prev,
+        nodes: prev.nodes.map((n) =>
+          selectionHas(selection, 'node', n.id) ? { ...n, colorTheme: color } : n
+        ),
+        groups: prev.groups.map((g) =>
+          selectionHas(selection, 'group', g.id) ? { ...g, colorTheme: color } : g
+        ),
+        texts: prev.texts.map((t) =>
+          selectionHas(selection, 'text', t.id) ? { ...t, colorTheme: color } : t
+        ),
+        edges: prev.edges.map((e) =>
+          selectionHas(selection, 'edge', e.id) ? { ...e, colorTheme: color } : e
+        ),
+      }));
+    },
+    [selection, setDocument]
+  );
+
+  const handleReorder = useCallback(
+    (direction: 'forward' | 'backward' | 'front' | 'back') => {
+      if (selection.length === 0) return;
+      setDocument((prev) => reorderSelection(prev, selection, direction));
+    },
+    [selection, setDocument]
+  );
+
+  const isSelectionLocked = useMemo(() => {
+    if (selection.length === 0) return false;
+    return selection.every((s) => {
+      if (s.kind === 'node') return Boolean(doc.nodes.find((n) => n.id === s.id)?.locked);
+      if (s.kind === 'group') return Boolean(doc.groups.find((g) => g.id === s.id)?.locked);
+      if (s.kind === 'text') return Boolean(doc.texts.find((t) => t.id === s.id)?.locked);
+      return false;
+    });
+  }, [doc.groups, doc.nodes, doc.texts, selection]);
+
+  const handleToggleLock = useCallback(() => {
+    if (selection.length === 0) return;
+    const nextLocked = !isSelectionLocked;
+    setDocument((prev) => ({
+      ...prev,
+      nodes: prev.nodes.map((n) =>
+        selectionHas(selection, 'node', n.id) ? { ...n, locked: nextLocked } : n
+      ),
+      groups: prev.groups.map((g) =>
+        selectionHas(selection, 'group', g.id) ? { ...g, locked: nextLocked } : g
+      ),
+      texts: prev.texts.map((t) =>
+        selectionHas(selection, 'text', t.id) ? { ...t, locked: nextLocked } : t
+      ),
+    }));
+  }, [isSelectionLocked, selection, setDocument]);
+
+  const handleSelectAll = useCallback(() => {
+    setSelection([
+      ...doc.groups.map((g) => ({ kind: 'group' as const, id: g.id })),
+      ...doc.nodes.map((n) => ({ kind: 'node' as const, id: n.id })),
+      ...doc.texts.map((t) => ({ kind: 'text' as const, id: t.id })),
+      ...doc.edges.map((e) => ({ kind: 'edge' as const, id: e.id })),
+    ]);
+  }, [doc.edges, doc.groups, doc.nodes, doc.texts]);
 
   const handleSelectTemplate = useCallback(
     (template: ArchitectureTemplate) => {
       const nextDoc = template.build();
-      updateDocument(() => nextDoc);
-      setSelection(null);
+      setDocument(() => nextDoc);
+      setSelection([]);
       setToolMode('select');
       window.requestAnimationFrame(() => fitToView(nextDoc));
       showToast(`Template "${template.name}" dimuat.`);
     },
-    [fitToView, showToast, updateDocument]
+    [fitToView, setDocument, showToast]
   );
 
   const handleLoadStarterTemplateById = useCallback(
@@ -410,15 +700,16 @@ export default function App() {
   );
 
   const handleClearCanvas = useCallback(() => {
-    updateDocument((prev) => ({
+    setDocument((prev) => ({
       ...prev,
       groups: [],
       nodes: [],
+      texts: [],
       edges: [],
     }));
-    setSelection(null);
+    setSelection([]);
     showToast('Kanvas dibersihkan. Gunakan Ctrl+Z untuk membatalkan.');
-  }, [showToast, updateDocument]);
+  }, [setDocument, showToast]);
 
   const handleExportJson = useCallback(() => {
     exportDiagramToJson(doc);
@@ -435,8 +726,8 @@ export default function App() {
           showToast(result.error, 'error');
           return;
         }
-        updateDocument(() => result.doc);
-        setSelection(null);
+        setDocument(() => result.doc);
+        setSelection([]);
         setToolMode('select');
         window.requestAnimationFrame(() => fitToView(result.doc));
         showToast(`Diagram "${result.doc.title}" berhasil diimpor.`);
@@ -446,94 +737,202 @@ export default function App() {
       };
       reader.readAsText(file);
     },
-    [fitToView, showToast, updateDocument]
+    [fitToView, setDocument, showToast]
   );
 
-  // Global keyboard shortcuts
+  // Global keyboard shortcuts (meta-guarded to prevent Ctrl+C/V/G conflicts)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (exportModalOpen || shortcutHelpOpen) return;
+
       const target = e.target as HTMLElement | null;
       const isEditing =
-        target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
       if (isEditing) return;
 
       const meta = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
 
-      if (meta && e.key.toLowerCase() === 'z') {
+      if (meta && e.altKey && key === 'c') {
         e.preventDefault();
-        if (e.shiftKey) handleRedo();
-        else handleUndo();
+        handleCopyStyle();
         return;
       }
-      if (meta && e.key.toLowerCase() === 'y') {
+      if (meta && e.altKey && key === 'v') {
         e.preventDefault();
-        handleRedo();
+        handlePasteStyle();
         return;
       }
-      if (meta && e.key.toLowerCase() === 'd') {
-        e.preventDefault();
-        handleDuplicateSelected();
-        return;
+
+      if (meta && !e.altKey) {
+        if (key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) handleRedo();
+          else handleUndo();
+          return;
+        }
+        if (key === 'y') {
+          e.preventDefault();
+          handleRedo();
+          return;
+        }
+        if (key === 'd') {
+          e.preventDefault();
+          handleDuplicateSelected();
+          return;
+        }
+        if (key === 'a') {
+          e.preventDefault();
+          handleSelectAll();
+          return;
+        }
+        if (key === 'c') {
+          e.preventDefault();
+          void handleCopy();
+          return;
+        }
+        if (key === 'x') {
+          e.preventDefault();
+          void handleCut();
+          return;
+        }
+        if (key === 'v') {
+          e.preventDefault();
+          void handlePaste();
+          return;
+        }
+        if (key === 'l') {
+          e.preventDefault();
+          handleToggleLock();
+          return;
+        }
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          setViewport((prev) => ({
+            ...prev,
+            zoom: Math.min(2.2, Number((prev.zoom + 0.15).toFixed(2))),
+          }));
+          return;
+        }
+        if (e.key === '-') {
+          e.preventDefault();
+          setViewport((prev) => ({
+            ...prev,
+            zoom: Math.max(0.35, Number((prev.zoom - 0.15).toFixed(2))),
+          }));
+          return;
+        }
+        if (e.key === '0') {
+          e.preventDefault();
+          setViewport((prev) => ({ ...prev, zoom: 1 }));
+          return;
+        }
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selection) {
+        if (selection.length > 0) {
           e.preventDefault();
           handleDeleteSelected();
         }
         return;
       }
 
-      const key = e.key.toLowerCase();
-      if (key === 'v') setToolMode('select');
-      else if (key === 'h') setToolMode('pan');
-      else if (key === 'c') setToolMode('connect');
-      else if (key === 'g') handleQuickAddGroup(CATALOG_GROUPS[0]);
-      else if (e.key === 'Escape') {
-        setSelection(null);
-        setToolMode('select');
+      if (
+        selection.length > 0 &&
+        !meta &&
+        !e.altKey &&
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)
+      ) {
+        e.preventDefault();
+        const step = e.shiftKey ? GRID_SIZE : 1;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        setDocument((prev) => nudgeSelection(prev, selection, dx, dy), 'nudge');
+        return;
+      }
+
+      if (!meta && !e.altKey) {
+        if (key === 'v') setToolMode('select');
+        else if (key === 'h') setToolMode('pan');
+        else if (key === 'c') setToolMode('connect');
+        else if (key === 't') setToolMode('text');
+        else if (key === 'g') handleQuickAddGroup(CATALOG_GROUPS[0]);
+        else if (e.key === ']') handleReorder(e.shiftKey ? 'front' : 'forward');
+        else if (e.key === '[') handleReorder(e.shiftKey ? 'back' : 'backward');
+        else if (e.key === '?') setShortcutHelpOpen((v) => !v);
+        else if (e.key === 'Escape') {
+          setSelection([]);
+          setToolMode('select');
+          setContextMenu(null);
+        }
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleDeleteSelected, handleDuplicateSelected, handleQuickAddGroup, handleRedo, handleUndo, selection]);
+  }, [
+    exportModalOpen,
+    handleCopy,
+    handleCopyStyle,
+    handleCut,
+    handleDeleteSelected,
+    handleDuplicateSelected,
+    handlePaste,
+    handlePasteStyle,
+    handleQuickAddGroup,
+    handleRedo,
+    handleReorder,
+    handleSelectAll,
+    handleToggleLock,
+    handleUndo,
+    selection,
+    setDocument,
+    shortcutHelpOpen,
+  ]);
 
+  const singleSel = selection.length === 1 ? selection[0] : null;
   const selectedNode = useMemo(
-    () => (selection?.kind === 'node' ? doc.nodes.find((n) => n.id === selection.id) ?? null : null),
-    [doc.nodes, selection]
+    () => (singleSel?.kind === 'node' ? doc.nodes.find((n) => n.id === singleSel.id) ?? null : null),
+    [doc.nodes, singleSel]
   );
-
   const selectedGroup = useMemo(
-    () => (selection?.kind === 'group' ? doc.groups.find((g) => g.id === selection.id) ?? null : null),
-    [doc.groups, selection]
+    () => (singleSel?.kind === 'group' ? doc.groups.find((g) => g.id === singleSel.id) ?? null : null),
+    [doc.groups, singleSel]
   );
-
   const selectedEdge = useMemo(
-    () => (selection?.kind === 'edge' ? doc.edges.find((e) => e.id === selection.id) ?? null : null),
-    [doc.edges, selection]
+    () => (singleSel?.kind === 'edge' ? doc.edges.find((e) => e.id === singleSel.id) ?? null : null),
+    [doc.edges, singleSel]
+  );
+  const selectedText = useMemo(
+    () => (singleSel?.kind === 'text' ? doc.texts.find((t) => t.id === singleSel.id) ?? null : null),
+    [doc.texts, singleSel]
   );
 
-  const hasElements = doc.nodes.length > 0 || doc.groups.length > 0;
+  const hasElements = doc.nodes.length > 0 || doc.groups.length > 0 || doc.texts.length > 0;
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-slate-50 text-slate-900">
-      {/* Top 3-Zone Header */}
       <Header
         title={doc.title}
-        onTitleChange={(title) => updateDocument((prev) => ({ ...prev, title }))}
+        onTitleChange={(title) => setDocument((prev) => ({ ...prev, title }))}
         onSelectTemplate={handleSelectTemplate}
         onImportJsonFile={handleImportJsonFile}
         onExportJson={handleExportJson}
-        onOpenExportPng={() => setExportPngOpen(true)}
+        onOpenExportModal={() => setExportModalOpen(true)}
         hasElements={hasElements}
       />
 
-      {/* Main Workspace: Catalog Sidebar + Sketch Canvas + Contextual Inspector */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <CatalogSidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
           onQuickAddNode={handleQuickAddNode}
           onQuickAddGroup={handleQuickAddGroup}
+          onQuickAddText={handleQuickAddText}
         />
 
         <Canvas
@@ -546,48 +945,87 @@ export default function App() {
           onSelectionChange={setSelection}
           snapToGrid={snapToGrid}
           onToggleSnapToGrid={() => setSnapToGrid((v) => !v)}
-          canUndo={past.length > 0}
-          canRedo={future.length > 0}
+          canUndo={canUndo}
+          canRedo={canRedo}
           onUndo={handleUndo}
           onRedo={handleRedo}
           onQuickAddVpc={() => handleQuickAddGroup(CATALOG_GROUPS[0])}
+          onCreateTextAt={addTextAt}
           onDropCatalogItem={handleDropCatalogItem}
-          onTransientUpdateNode={handleTransientUpdateNode}
-          onTransientUpdateGroup={handleTransientUpdateGroup}
-          onCommitDocument={commitBeforeSnapshot}
+          onTransientDocument={setTransient}
+          onCommitDragMove={handleCommitDragMove}
+          onCommitDocument={commitBefore}
+          onRevertTransient={revertTransient}
+          onDuplicateForDrag={handleDuplicateForDrag}
           onUpdateNodeLabel={(id, label) => handleUpdateNode(id, { label })}
           onUpdateGroupLabel={(id, label) => handleUpdateGroup(id, { label })}
           onUpdateEdgeLabel={(id, label) => handleUpdateEdge(id, { label })}
+          onUpdateTextContent={(id, text) => handleUpdateText(id, { text })}
           onCreateEdge={handleCreateEdge}
+          onReconnectEdge={handleReconnectEdge}
           onDeleteSelected={handleDeleteSelected}
           onClearCanvas={handleClearCanvas}
           onFitToView={() => fitToView(doc)}
           onLoadStarterTemplate={handleLoadStarterTemplateById}
+          onOpenShortcutHelp={() => setShortcutHelpOpen(true)}
+          onOpenContextMenu={setContextMenu}
           canvasContainerRef={canvasContainerRef}
         />
 
         <InspectorPanel
+          selection={selection}
           selectedNode={selectedNode}
           selectedGroup={selectedGroup}
           selectedEdge={selectedEdge}
+          selectedText={selectedText}
+          hasCopiedStyle={Boolean(copiedStyle)}
+          isSelectionLocked={isSelectionLocked}
           onUpdateNode={handleUpdateNode}
           onUpdateGroup={handleUpdateGroup}
           onUpdateEdge={handleUpdateEdge}
+          onUpdateText={handleUpdateText}
+          onBulkSetColor={handleBulkSetColor}
+          onReorder={handleReorder}
+          onToggleLock={handleToggleLock}
+          onCopyStyle={handleCopyStyle}
+          onPasteStyle={handlePasteStyle}
           onDuplicateSelected={handleDuplicateSelected}
           onDeleteSelected={handleDeleteSelected}
-          onClose={() => setSelection(null)}
+          onClose={() => setSelection([])}
         />
       </div>
 
-      {/* Export PNG Dialog */}
-      <ExportPngModal
-        open={exportPngOpen}
+      <ExportModal
+        open={exportModalOpen}
         doc={doc}
-        onClose={() => setExportPngOpen(false)}
-        onExportSuccess={() => showToast('Gambar PNG berhasil diunduh.')}
+        selection={selection}
+        onClose={() => setExportModalOpen(false)}
+        onNotify={showToast}
       />
 
-      {/* Subtle Toast Notification */}
+      <ShortcutHelpModal open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
+
+      <ContextMenu
+        menu={contextMenu}
+        hasSelection={selection.length > 0}
+        hasClipboard={Boolean(clipboardFallback)}
+        hasCopiedStyle={Boolean(copiedStyle)}
+        isLocked={isSelectionLocked}
+        onClose={() => setContextMenu(null)}
+        onCopy={() => void handleCopy()}
+        onCut={() => void handleCut()}
+        onPasteAt={(wx, wy) => void handlePaste({ x: wx, y: wy })}
+        onDuplicate={handleDuplicateSelected}
+        onCopyStyle={handleCopyStyle}
+        onPasteStyle={handlePasteStyle}
+        onBringFront={() => handleReorder('front')}
+        onSendBack={() => handleReorder('back')}
+        onToggleLock={handleToggleLock}
+        onSelectAll={handleSelectAll}
+        onFitToView={() => fitToView(doc)}
+        onDelete={handleDeleteSelected}
+      />
+
       {toast && (
         <div
           key={toast.id}
