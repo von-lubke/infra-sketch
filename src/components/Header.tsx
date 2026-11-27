@@ -72,12 +72,12 @@ export function Header({
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2 shrink-0">
           <img
-            src="/logo.png"
+            src="/favicon.svg"
             alt=""
             aria-hidden="true"
             width={28}
             height={28}
-            className="w-7 h-7 rounded-lg shrink-0"
+            className="w-7 h-7 shrink-0"
           />
           <span className="text-base font-bold tracking-tight text-slate-900 whitespace-nowrap">
             InfraSketch

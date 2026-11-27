@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- 4 Figma-style corner selection brackets -->
+  <g fill="none" stroke="#4f46e5" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 18 38 L 18 22 A 4 4 0 0 1 22 18 L 38 18"/>
+    <path d="M 90 18 L 106 18 A 4 4 0 0 1 110 22 L 110 38"/>
+    <path d="M 18 90 L 18 106 A 4 4 0 0 0 22 110 L 38 110"/>
+    <path d="M 90 110 L 106 110 A 4 4 0 0 0 110 106 L 110 90"/>
+  </g>
+
+  <!-- Central rounded node -->
+  <rect x="34" y="34" width="60" height="60" rx="14" fill="#f8fafc" stroke="#0f172a" stroke-width="7.5" stroke-linejoin="round"/>
+
+  <!-- 3 short sketchy horizontal lines inside node -->
+  <path d="M 48 50 Q 64 48 79 50" fill="none" stroke="#4f46e5" stroke-width="6.5" stroke-linecap="round"/>
+  <path d="M 48 64 Q 60 65 73 64" fill="none" stroke="#0f172a" stroke-width="6.5" stroke-linecap="round"/>
+  <path d="M 48 78 Q 57 77 65 78" fill="none" stroke="#4f46e5" stroke-width="6.5" stroke-linecap="round"/>
+</svg>
