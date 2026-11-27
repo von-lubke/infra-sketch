@@ -67,7 +67,7 @@ export function Header({
   };
 
   return (
-    <header className="h-14 shrink-0 bg-white border-b border-slate-200 px-5 flex items-center justify-between gap-6 z-30">
+    <header className="relative h-14 shrink-0 bg-white border-b border-slate-200 px-5 flex items-center justify-between gap-6 z-40">
       {/* Zone 1: Brand & Editable Document Title */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2 shrink-0">

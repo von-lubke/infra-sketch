@@ -1,22 +1,22 @@
 <div align="center">
 
-# InfraSketch
+# <img src="public/logo.png" alt="InfraSketch" width="32" height="32" align="absmiddle" /> InfraSketch
 
 **Tool diagram arsitektur infrastruktur cloud bergaya sketsa (*hand-drawn*) ala Excalidraw.**
 
 Rancang topologi multi-cloud (AWS, GCP, Azure, Kubernetes, dan komponen generik), atur container VPC/Subnet/Cluster bersarang, hubungkan layanan dengan panah berlabel, lalu ekspor ke PNG beresolusi tinggi, SVG vektor, atau JSON langsung dari browser.
 
-![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=0F172A)
-![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![Rough.js](https://img.shields.io/badge/Rough.js-4.6-EC4899?style=for-the-badge)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat&logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
+![Rough.js](https://img.shields.io/badge/Rough.js-4.6-EC4899?style=flat)
 
-![Multi-Cloud](https://img.shields.io/badge/Katalog-AWS%20%7C%20GCP%20%7C%20Azure%20%7C%20K8s%20%7C%20Generik-4F46E5?style=for-the-badge)
-![Export](https://img.shields.io/badge/Export-PNG%20%7C%20SVG%20%7C%20JSON-059669?style=for-the-badge)
-![Runtime](https://img.shields.io/badge/Package_Manager-Bun%20%7C%20npm-0F172A?style=for-the-badge&logo=bun&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-[![Docker Build](https://img.shields.io/github/actions/workflow/status/von-lubke/infra-sketch/docker.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=Docker%20CI)](https://github.com/von-lubke/infra-sketch/actions/workflows/docker.yml)
+![Multi-Cloud](https://img.shields.io/badge/Katalog-AWS%20%7C%20GCP%20%7C%20Azure%20%7C%20K8s%20%7C%20Generik-4F46E5?style=flat)
+![Export](https://img.shields.io/badge/Export-PNG%20%7C%20SVG%20%7C%20JSON-059669?style=flat)
+![Runtime](https://img.shields.io/badge/Package_Manager-Bun%20%7C%20npm-0F172A?style=flat&logo=bun&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker&logoColor=white)
+[![Docker Build](https://img.shields.io/github/actions/workflow/status/von-lubke/infra-sketch/docker.yml?branch=main&style=flat&logo=githubactions&logoColor=white&label=Docker%20CI)](https://github.com/von-lubke/infra-sketch/actions/workflows/docker.yml)
 
 </div>
 
@@ -118,7 +118,7 @@ Buka `http://localhost:5758` di browser.
 
 ## Cara Menggunakan
 
-1. **Tambah Komponen, Container, atau Anotasi**: Seret dari sidebar kiri, klik item untuk tambah di tengah layar, atau tekan `T` (Catatan) / `G` (VPC).
+1. **Tambah Komponen, Container, atau Anotasi**: Seret dari sidebar kiri (geser tab provider secara horizontal untuk filter Generik, AWS, GCP, Azure, atau K8s), klik item untuk tambah di tengah layar, atau tekan `T` (Catatan) / `G` (VPC).
 2. **Duplikat Cepat (`Ctrl+Drag`)**: Tahan `Ctrl` (atau `Alt`) sambil menyeret node, container, atau beberapa elemen terpilih untuk menduplikat beserta propertinya.
 3. **Hubungkan Layanan**: Tarik dari titik port di sisi komponen/container, atau aktifkan mode Konektor (`C`). Setelah terpilih, seret titik ujung panah untuk menyambung ulang.
 4. **Edit Properti**: *Double-click* untuk edit cepat teks di kanvas, klik kanan untuk menu konteks, atau ubah ikon, tema warna, tipe jalur (`Lengkung`/`Lurus`/`Siku`), dan arah panah di panel kanan.
@@ -157,21 +157,22 @@ infra-sketch/
 ├── .github/workflows/docker.yml   # CI: typecheck, lint, test, build & push image Docker ke GHCR
 ├── Dockerfile                     # Multi-stage Docker (Bun builder + Nginx non-root port 5758)
 ├── index.html                     # Entry HTML
+├── public/                        # Logo InfraSketch & ikon favicon multi-ukuran
 ├── package.json                   # Dependensi & skrip
 ├── vite.config.ts                 # Konfigurasi Vite + Tailwind CSS v4
 ├── .oxlintrc.json                 # Konfigurasi Oxlint
 └── src/
-    ├── App.tsx                    # State dokumen, shortcut global, clipboard, & integrasi panel
+    ├── App.tsx                    # State dokumen, shortcut global, clipboard, & isolasi layer
     ├── main.tsx                   # Bootstrap React StrictMode & font lokal
-    ├── index.css                  # Konfigurasi Tailwind v4 & font theme
+    ├── index.css                  # Konfigurasi Tailwind v4, font theme, & utilitas scrollbar
     ├── types/diagram.ts           # Definisi tipe Node, Group, Text, Edge, Selection, & Export
     ├── hooks/useHistory.ts        # Reducer history murni dengan coalescing & deteksi no-op
     ├── data/
     │   ├── catalog.ts             # 7 tema warna, path ikon vektor, 4 container, & 48 komponen
     │   └── templates.ts           # 6 template arsitektur siap pakai
     ├── components/
-    │   ├── Header.tsx             # Header 3-zona
-    │   ├── CatalogSidebar.tsx     # Sidebar katalog collapsible dengan filter 5 provider
+    │   ├── Header.tsx             # Header 3-zona dengan dropdown template di atas kanvas
+    │   ├── CatalogSidebar.tsx     # Sidebar katalog collapsible dengan tab provider 1-baris geser & pencarian
     │   ├── Canvas.tsx             # Kanvas SVG interaktif, marquee, Ctrl+Drag, & inline edit
     │   ├── InspectorPanel.tsx     # Panel properti tunggal & multi-select + pemilih ikon
     │   ├── ExportModal.tsx        # Modal export PNG, SVG, & salin ke clipboard

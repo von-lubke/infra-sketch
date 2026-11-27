@@ -926,7 +926,7 @@ export default function App() {
         hasElements={hasElements}
       />
 
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="relative z-0 flex-1 flex min-h-0 overflow-hidden">
         <CatalogSidebar
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed((v) => !v)}

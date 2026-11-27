@@ -1,5 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { BoxSelect, PanelLeftClose, PanelLeftOpen, Search, StickyNote, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  BoxSelect,
+  ChevronLeft,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  StickyNote,
+  X,
+} from 'lucide-react';
 import {
   CATALOG_COMPONENTS,
   CATALOG_GROUPS,
@@ -28,6 +37,160 @@ export function CatalogSidebar({
 }: CatalogSidebarProps) {
   const [search, setSearch] = useState('');
   const [activeProvider, setActiveProvider] = useState<Provider | 'all'>('all');
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isDraggingTabs, setIsDraggingTabs] = useState(false);
+
+  const tabsScrollRef = useRef<HTMLDivElement | null>(null);
+  const tabRefs = useRef<Partial<Record<Provider | 'all', HTMLButtonElement | null>>>({});
+  const dragStateRef = useRef<{
+    active: boolean;
+    startX: number;
+    startScrollLeft: number;
+    moved: boolean;
+  }>({ active: false, startX: 0, startScrollLeft: 0, moved: false });
+  const suppressTabClickRef = useRef(false);
+  const resetSuppressTimerRef = useRef<number | null>(null);
+  const windowDragCleanupRef = useRef<(() => void) | null>(null);
+
+  const updateScrollIndicators = useCallback(() => {
+    const el = tabsScrollRef.current;
+    if (!el) {
+      setCanScrollLeft(false);
+      setCanScrollRight(false);
+      return;
+    }
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(maxScroll - el.scrollLeft > 2);
+  }, []);
+
+  useEffect(() => {
+    if (collapsed) return;
+    const el = tabsScrollRef.current;
+    if (!el) return;
+
+    updateScrollIndicators();
+
+    // Translate vertical mouse-wheel scrolling into horizontal tab scrolling
+    const handleWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+        updateScrollIndicators();
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => updateScrollIndicators());
+      observer.observe(el);
+    }
+    window.addEventListener('resize', updateScrollIndicators);
+
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+      observer?.disconnect();
+      window.removeEventListener('resize', updateScrollIndicators);
+    };
+  }, [collapsed, updateScrollIndicators]);
+
+  useEffect(() => {
+    return () => {
+      windowDragCleanupRef.current?.();
+      if (resetSuppressTimerRef.current !== null) {
+        window.clearTimeout(resetSuppressTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleTabsPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    const el = tabsScrollRef.current;
+    if (!el || el.scrollWidth <= el.clientWidth) return;
+
+    windowDragCleanupRef.current?.();
+    dragStateRef.current = {
+      active: true,
+      startX: e.clientX,
+      startScrollLeft: el.scrollLeft,
+      moved: false,
+    };
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state.active) return;
+      const dx = moveEvent.clientX - state.startX;
+      if (!state.moved && Math.abs(dx) > 4) {
+        state.moved = true;
+        setIsDraggingTabs(true);
+      }
+      if (state.moved) {
+        el.scrollLeft = state.startScrollLeft - dx;
+        updateScrollIndicators();
+      }
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+      windowDragCleanupRef.current = null;
+    };
+
+    const onPointerUp = () => {
+      cleanupListeners();
+      const wasMoved = dragStateRef.current.moved;
+      dragStateRef.current.active = false;
+      dragStateRef.current.moved = false;
+      setIsDraggingTabs(false);
+
+      if (wasMoved) {
+        suppressTabClickRef.current = true;
+        if (resetSuppressTimerRef.current !== null) {
+          window.clearTimeout(resetSuppressTimerRef.current);
+        }
+        resetSuppressTimerRef.current = window.setTimeout(() => {
+          suppressTabClickRef.current = false;
+          resetSuppressTimerRef.current = null;
+        }, 0);
+      }
+    };
+
+    windowDragCleanupRef.current = cleanupListeners;
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  };
+
+  const handleTabsClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!suppressTabClickRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    suppressTabClickRef.current = false;
+  };
+
+  const scrollTabsBy = (delta: number) => {
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    if (typeof el.scrollBy === 'function') {
+      el.scrollBy({ left: delta, behavior: 'smooth' });
+    } else {
+      el.scrollLeft += delta;
+      updateScrollIndicators();
+    }
+  };
+
+  const handleSelectProvider = (prov: Provider | 'all') => {
+    setActiveProvider(prov);
+    const tabEl = tabRefs.current[prov];
+    if (tabEl && typeof tabEl.scrollIntoView === 'function') {
+      tabEl.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    }
+  };
 
   const filteredComponents = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -120,25 +283,74 @@ export function CatalogSidebar({
           )}
         </div>
 
-        {/* Provider Tabs */}
-        <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
-          {PROVIDER_TABS.map((prov) => {
-            const active = activeProvider === prov;
-            return (
+        {/* Provider Tabs - Single Row Horizontally Slidable */}
+        <div className="relative bg-slate-100 rounded-lg p-1">
+          <div
+            ref={tabsScrollRef}
+            role="tablist"
+            aria-label="Filter provider komponen"
+            onScroll={updateScrollIndicators}
+            onPointerDown={handleTabsPointerDown}
+            onClickCapture={handleTabsClickCapture}
+            className={`flex items-center gap-1 flex-nowrap overflow-x-auto scrollbar-none scroll-px-6 select-none touch-pan-x ${
+              isDraggingTabs ? 'cursor-grabbing' : 'cursor-grab'
+            }`}
+          >
+            {PROVIDER_TABS.map((prov) => {
+              const active = activeProvider === prov;
+              return (
+                <button
+                  key={prov}
+                  ref={(node) => {
+                    tabRefs.current[prov] = node;
+                  }}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => handleSelectProvider(prov)}
+                  className={`shrink-0 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap ${
+                    isDraggingTabs ? 'cursor-grabbing' : 'cursor-pointer'
+                  } ${
+                    active
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {PROVIDER_LABELS[prov]}
+                </button>
+              );
+            })}
+          </div>
+
+          {canScrollLeft && (
+            <div className="pointer-events-none absolute left-1 top-1 bottom-1 flex items-center pr-3 bg-gradient-to-r from-slate-100 via-slate-100/95 to-transparent rounded-l-md">
               <button
-                key={prov}
                 type="button"
-                onClick={() => setActiveProvider(prov)}
-                className={`py-1 text-[11px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
-                  active
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => scrollTabsBy(-110)}
+                title="Geser tab ke kiri"
+                aria-label="Geser tab ke kiri"
+                className="pointer-events-auto h-full px-0.5 flex items-center text-slate-500 hover:text-slate-800 cursor-pointer"
               >
-                {PROVIDER_LABELS[prov]}
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-            );
-          })}
+            </div>
+          )}
+
+          {canScrollRight && (
+            <div className="pointer-events-none absolute right-1 top-1 bottom-1 flex items-center pl-3 bg-gradient-to-l from-slate-100 via-slate-100/95 to-transparent rounded-r-md">
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => scrollTabsBy(110)}
+                title="Geser tab ke kanan"
+                aria-label="Geser tab ke kanan"
+                className="pointer-events-auto h-full px-0.5 flex items-center text-slate-500 hover:text-slate-800 cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -240,7 +452,7 @@ export function CatalogSidebar({
                 type="button"
                 onClick={() => {
                   setSearch('');
-                  setActiveProvider('all');
+                  handleSelectProvider('all');
                 }}
                 className="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-700 cursor-pointer"
               >
