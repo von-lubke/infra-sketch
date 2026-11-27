@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   BoxSelect,
   Grid3X3,
@@ -857,6 +857,10 @@ export function Canvas({
   canvasContainerRef,
 }: CanvasProps) {
   const dragRef = useRef<DragState | null>(null);
+  const toolbarWrapperRef = useRef<HTMLDivElement | null>(null);
+  const toolbarScrollRef = useRef<HTMLDivElement | null>(null);
+  const resetButtonRef = useRef<HTMLButtonElement | null>(null);
+  const confirmPopoverRef = useRef<HTMLDivElement | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [copyModifierPressed, setCopyModifierPressed] = useState(false);
@@ -865,6 +869,73 @@ export function Canvas({
   const [marqueeBox, setMarqueeBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [draftEdge, setDraftEdge] = useState<DraftEdgeState | null>(null);
   const [inlineEdit, setInlineEdit] = useState<InlineEditState | null>(null);
+
+  const isEmpty = doc.nodes.length === 0 && doc.groups.length === 0 && doc.texts.length === 0;
+  const [prevIsEmpty, setPrevIsEmpty] = useState(isEmpty);
+  if (isEmpty !== prevIsEmpty) {
+    setPrevIsEmpty(isEmpty);
+    if (isEmpty && confirmClearOpen) {
+      setConfirmClearOpen(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!confirmClearOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        confirmPopoverRef.current?.contains(target) ||
+        resetButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setConfirmClearOpen(false);
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [confirmClearOpen]);
+
+  useLayoutEffect(() => {
+    if (!confirmClearOpen || isEmpty) return;
+
+    const updatePosition = () => {
+      const wrapper = toolbarWrapperRef.current;
+      const btn = resetButtonRef.current;
+      const popover = confirmPopoverRef.current;
+      if (!wrapper || !btn || !popover) return;
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      if (wrapperRect.width === 0) {
+        popover.style.left = '';
+        popover.style.right = '';
+        return;
+      }
+      const popoverWidth = popover.offsetWidth || 224;
+      const rawLeft = btnRect.right - wrapperRect.left - popoverWidth;
+      const maxLeft = Math.max(0, wrapperRect.width - popoverWidth);
+      const clampedLeft = Math.max(0, Math.min(rawLeft, maxLeft));
+      popover.style.right = 'auto';
+      popover.style.left = `${clampedLeft}px`;
+    };
+
+    updatePosition();
+
+    const scrollEl = toolbarScrollRef.current;
+    scrollEl?.addEventListener('scroll', updatePosition, { passive: true });
+    window.addEventListener('resize', updatePosition);
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' && toolbarWrapperRef.current
+        ? new ResizeObserver(updatePosition)
+        : null;
+    if (resizeObserver && toolbarWrapperRef.current) {
+      resizeObserver.observe(toolbarWrapperRef.current);
+    }
+    return () => {
+      scrollEl?.removeEventListener('scroll', updatePosition);
+      window.removeEventListener('resize', updatePosition);
+      resizeObserver?.disconnect();
+    };
+  }, [confirmClearOpen, isEmpty]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1611,7 +1682,6 @@ export function Canvas({
     return { start, end };
   }, [draftEdge, doc]);
 
-  const isEmpty = doc.nodes.length === 0 && doc.groups.length === 0 && doc.texts.length === 0;
   const worldDotStep = viewport.zoom < 0.5 ? 40 : 20;
   const dotSpacing = worldDotStep * viewport.zoom;
   const canvasCursor =
@@ -1647,7 +1717,14 @@ export function Canvas({
       )}
 
       {/* Floating Top-Center Excalidraw-Style Toolbar */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-1.5 py-1.5 shadow-sm max-w-[calc(100%-2rem)] overflow-x-auto">
+      <div
+        ref={toolbarWrapperRef}
+        className="absolute top-4 left-1/2 -translate-x-1/2 z-30 max-w-[calc(100%-2rem)]"
+      >
+        <div
+          ref={toolbarScrollRef}
+          className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-1.5 py-1.5 shadow-sm overflow-x-auto"
+        >
         <button
           type="button"
           onClick={() => {
@@ -1763,44 +1840,21 @@ export function Canvas({
           <Trash2 className="w-4 h-4" />
         </button>
 
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setConfirmClearOpen((v) => !v)}
-            disabled={isEmpty}
-            title="Kosongkan Kanvas"
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-rose-700 hover:bg-rose-50 disabled:text-slate-300 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors whitespace-nowrap cursor-pointer"
-          >
-            Reset
-          </button>
-
-          {confirmClearOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-3 z-50">
-              <p className="text-xs text-slate-700 leading-relaxed">
-                Hapus semua komponen dan konektor di kanvas ini?
-              </p>
-              <div className="mt-2.5 flex items-center justify-end gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setConfirmClearOpen(false)}
-                  className="px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClearCanvas();
-                    setConfirmClearOpen(false);
-                  }}
-                  className="px-2.5 py-1 text-xs font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-md cursor-pointer"
-                >
-                  Ya, Reset
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <button
+          ref={resetButtonRef}
+          type="button"
+          onClick={() => {
+            if (inlineEdit) commitInlineEdit();
+            setConfirmClearOpen((v) => !v);
+          }}
+          disabled={isEmpty}
+          aria-expanded={confirmClearOpen}
+          aria-haspopup="dialog"
+          title="Kosongkan Kanvas"
+          className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-rose-700 hover:bg-rose-50 disabled:text-slate-300 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors whitespace-nowrap cursor-pointer"
+        >
+          Reset
+        </button>
 
         <button
           type="button"
@@ -1811,6 +1865,41 @@ export function Canvas({
         >
           <HelpCircle className="w-4 h-4" />
         </button>
+        </div>
+
+        {/* Rendered outside overflow-x-auto pill so CSS overflow-y:auto does not clip the popover */}
+        {confirmClearOpen && !isEmpty && (
+          <div
+            ref={confirmPopoverRef}
+            role="dialog"
+            aria-modal="false"
+            aria-label="Konfirmasi reset kanvas"
+            className="absolute right-0 top-full mt-2 w-56 max-w-full bg-white border border-slate-200 rounded-xl shadow-lg p-3 z-50"
+          >
+            <p className="text-xs text-slate-700 leading-relaxed">
+              Hapus semua komponen dan konektor di kanvas ini?
+            </p>
+            <div className="mt-2.5 flex items-center justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => setConfirmClearOpen(false)}
+                className="px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClearCanvas();
+                  setConfirmClearOpen(false);
+                }}
+                className="px-2.5 py-1 text-xs font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-md cursor-pointer"
+              >
+                Ya, Reset
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {toolMode === 'connect' && (
