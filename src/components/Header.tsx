@@ -70,9 +70,19 @@ export function Header({
     <header className="h-14 shrink-0 bg-white border-b border-slate-200 px-5 flex items-center justify-between gap-6 z-30">
       {/* Zone 1: Brand & Editable Document Title */}
       <div className="flex items-center gap-3 min-w-0">
-        <span className="text-base font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0">
-          InfraSketch
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <img
+            src="/logo.png"
+            alt=""
+            aria-hidden="true"
+            width={28}
+            height={28}
+            className="w-7 h-7 rounded-lg shrink-0"
+          />
+          <span className="text-base font-bold tracking-tight text-slate-900 whitespace-nowrap">
+            InfraSketch
+          </span>
+        </div>
         <span className="text-slate-300 select-none" aria-hidden="true">/</span>
         {isEditingTitle ? (
           <input
