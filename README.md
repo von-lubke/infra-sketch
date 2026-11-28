@@ -17,6 +17,7 @@ Rancang topologi multi-cloud (AWS, GCP, Azure, Kubernetes, dan komponen generik)
 ![Runtime](https://img.shields.io/badge/Package_Manager-Bun%20%7C%20npm-0F172A?style=flat&logo=bun&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker&logoColor=white)
 [![Docker Build](https://img.shields.io/github/actions/workflow/status/von-lubke/infra-sketch/docker.yml?branch=main&style=flat&logo=githubactions&logoColor=white&label=Docker%20CI)](https://github.com/von-lubke/infra-sketch/actions/workflows/docker.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-10B981?style=flat)](LICENSE)
 
 </div>
 
@@ -32,6 +33,7 @@ Rancang topologi multi-cloud (AWS, GCP, Azure, Kubernetes, dan komponen generik)
 - [Pintasan Keyboard](#pintasan-keyboard)
 - [Struktur Proyek](#struktur-proyek)
 - [Skrip yang Tersedia](#skrip-yang-tersedia)
+- [Lisensi](#lisensi)
 
 ---
 
@@ -200,3 +202,9 @@ infra-sketch/
 | `lint` | Pengecekan kode dengan Oxlint (`oxlint src`) |
 | `test` | Menjalankan unit test dengan Vitest (`vitest run`) |
 | `clean` | Menghapus direktori `dist/` |
+
+---
+
+## Lisensi
+
+Proyek ini dirilis di bawah lisensi [MIT](LICENSE).
